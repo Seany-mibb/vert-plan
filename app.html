@@ -129,14 +129,23 @@ var QS_SQ=[{q:'Did your knees cave in?',bad:'Yes',flag:'knee'},{q:'Did your heel
 var QS_LAND=[{q:'Did your knees cave in on landing?',bad:'Yes',flag:'knee'},{q:'Was your landing quiet?',bad:'No',flag:'loud'},{q:'Did both feet land together?',bad:'No',flag:'uneven'}];
 var EX={
  prep:{name:'Warm-up and ankle prep',d:'7 min · ankle and knee stability',q:'ankle stability warm up volleyball'},
+ bsq:{name:'Box squat',d:'4 sets of 5 · heavy',check:QS_SQ,q:'box squat form'},
+ cdl:{name:'Conventional deadlift',d:'4 sets of 5 · lighter than the squats',q:'conventional deadlift form'},
+ sprint:{name:'Sprints',d:'4 sets of 40 to 50 m',q:'sprint technique for jumping'},
+ wsj:{name:'Weighted squat jumps',d:'4 sets of 5 to 8 · soft landing',check:QS_LAND,q:'weighted squat jumps technique'},
+ ktj:{name:'Knees to jump',d:'4 sets of 5 to 8',q:'knees to jump exercise technique'},
+ sls:{name:'Single leg step up jumps',d:'4 sets of 8',q:'single leg step up jump technique'},
+ bound:{name:'Bounds',d:'3 sets of 20 m',q:'bounding exercise technique'},
+ depth:{name:'Depth jumps',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'depth jump technique'},
+ wpogo:{name:'Weighted pogos',d:'3 sets of 10 · last set with no weight',q:'weighted pogo jumps'},
  gsq:{name:'Goblet squat',sets:[3,4,4,3],d:'of 5',check:QS_SQ,q:'goblet squat form'},
  rdl:{name:'Romanian deadlift',d:'3 sets of 8',q:'romanian deadlift form'},
  spl:{name:'Split squat',d:'3 sets of 8 each leg',q:'split squat form'},
  calf:{name:'Calf raise',d:'3 sets of 12',q:'calf raise form'},
  land:{name:'Block landing practice',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'volleyball block jump landing technique'},
  foot:{name:'Footwork ladder',d:'3 rounds of 30 seconds',q:'volleyball footwork ladder drills'},
- pogo:{name:'Pogo hops',d:'3 sets of 10',q:'pogo hops technique'},
- appr:{name:'Approach jump',d:'4 sets of 3',check:QS_LAND,q:'volleyball approach jump technique'},
+ pogo:{name:'Pogo jumps',d:'4 sets of 8 · 2 small, 1 high',q:'pogo jumps technique'},
+ appr:{name:'Approach jumps',d:'4 sets of 5 to 8',check:QS_LAND,q:'approach jump technique vertical'},
  blk:{name:'Block jump',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'volleyball block jump technique'},
  pu:{name:'Push-up',d:'3 sets of 10',q:'push up form'},
  row:{name:'Dumbbell row',d:'3 sets of 10 each arm',q:'dumbbell row form'},
@@ -147,13 +156,13 @@ var EX={
  dead:{name:'Dead bug',d:'3 sets of 8 each side',q:'dead bug exercise'}
 };
 var SESS={
- heavy:{title:'Heavy lower body',min:45,tag:'Strength',ex:['prep','gsq','rdl','spl','calf','land']},
- plyo:{title:'Plyometrics and footwork',sub:'Approach and block jumps',min:30,tag:'Jumps',ex:['prep','foot','pogo','appr','blk']},
- plyoL:{title:'Light plyometrics',sub:'Shorter because the week is busy',min:15,tag:'Jumps',ex:['prep','foot','appr']},
+ heavy:{title:'Heavy lower body',min:40,tag:'Strength',ex:['prep','bsq','cdl','calf']},
+ plyo:{title:'Plyo day',sub:'Jumps and sprints',min:40,tag:'Jumps',ex:['prep','wsj','ktj','appr','sprint','pogo','sls']},
+ plyoL:{title:'Short plyo day',sub:'Shorter because the week is busy',min:20,tag:'Jumps',ex:['prep','sprint','appr']},
  upper:{title:'Upper body and core',min:35,tag:'Strength',ex:['prep','pu','row','ohp','plank','band']},
  lite:{title:'Low-impact day',sub:'No jumping or heavy lifting this week',min:20,tag:'Recovery',ex:['prep','bridge','dead','plank']}
 };
-var CHECKABLE=['gsq','land','appr','blk'];
+var CHECKABLE=['bsq','appr','wsj'];
 var STATUS=[['fine','Fine','No pain'],['tired','Tired','Normal soreness'],['achy','Achy','Hurts in a joint'],['sharp','Sharp pain','Stop and rest']];
 var AREAS=['Knee','Ankle','Back','Hip','Shoulder','Other'];
 
@@ -258,11 +267,11 @@ function viewPlan(){
  if(bw.notes.length)note+='<br><br><b>No safe day found for '+bw.notes.map(function(k){return SESS[k].title.toLowerCase();}).join(' and ')+'.</b> Ask your coach where to fit it.';
  var lv={Light:2,Moderate:3,High:5}[bw.level];
  var bar='<div class="bar5" aria-hidden="true">'+[0,1,2,3,4].map(function(i){return '<i class="'+(i<lv?'on':'')+'"></i>';}).join('')+'</div>';
- return '<div class="stack">'+(ui.notice?'<div class="notice" role="status">'+ui.notice+'</div>':'')+head('Your plan',w===4?'Week 4 is a lighter week.':'4 weeks. Strength first, jumps build on it.')+
+ return '<div class="stack">'+(ui.notice?'<div class="notice" role="status">'+ui.notice+'</div>':'')+head('Your plan','4 weeks. Strength first, jumps build on it.')+
  '<div class="tabs" role="group" aria-label="Week">'+[1,2,3,4].map(function(n){return '<button type="button" data-act="week" data-v="'+n+'" aria-pressed="'+(n===w)+'">Week '+n+'</button>';}).join('')+'</div>'+
  (planDone()?'<div class="notice">You finished the 4 weeks. Retest your vertical on the Progress tab.</div>':'')+
  '<div class="stack" style="gap:6px">'+rows+'</div>'+
- '<div class="card"><div class="right" style="font-size:14px"><b>This week\'s load</b><span>'+bw.level+' · school, club, games</span></div>'+bar+(bw.level==='High'?'<div class="small" style="margin-top:6px">Busy week. Plyometrics is shortened to a light version.</div>':'')+'</div>'+
+ '<div class="card"><div class="right" style="font-size:14px"><b>This week\'s load</b><span>'+bw.level+' · school, club, games</span></div>'+bar+(bw.level==='High'?'<div class="small" style="margin-top:6px">Busy week. The plyo day is shortened.</div>':'')+'</div>'+
  '<div class="card dash small" style="color:var(--ink)">'+note+'</div>'+
  (ui.editDays?'<div class="card">'+dayGrid(S.sched)+'<div style="margin-top:10px"><button type="button" class="btn" data-act="savedays">Save days</button></div></div>':'<button type="button" class="btn ghost" data-act="editdays">Edit game and practice days</button>')+
  '</div>';
@@ -283,7 +292,7 @@ function viewToday(){
  }else{
   var arr=(done&&done.ex)||(ui.todayEx&&ui.todayEx.key===key?ui.todayEx.list:[]);
   body=(done?'<div class="notice" role="status">Workout finished today. Nice work.</div>':'')+
-  (!done?'<div class="card accent" style="display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:13px;line-height:1.35"><b style="font-size:14px;color:var(--accent-ink)">Film one set</b><br>Compare it to a coach demo and answer 3 quick questions.</div><button type="button" class="btn acc sm" data-act="checkform" data-v="'+(SESS[k].ex.filter(function(x){return EX[x].check;})[0]||'gsq')+'">Record</button></div>':'')+
+  (!done?'<div class="card accent" style="display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:13px;line-height:1.35"><b style="font-size:14px;color:var(--accent-ink)">Film one set</b><br>Compare it to a coach demo and answer 3 quick questions.</div><button type="button" class="btn acc sm" data-act="checkform" data-v="'+(SESS[k].ex.filter(function(x){return EX[x].check;})[0]||'bsq')+'">Record</button></div>':'')+
   '<div class="stack" style="gap:8px">'+SESS[k].ex.map(function(id,i){return exRow(id,i,arr,cw);}).join('')+'</div>'+
   (done?'<button type="button" class="btn ghost" data-act="gocheckin">Log how you feel</button>':'<button type="button" class="btn" data-act="finish">Finish workout</button>');
  }
