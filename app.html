@@ -168,11 +168,11 @@ var AREAS=['Knee','Ankle','Back','Hip','Shoulder','Other'];
 
 /* ---------- state ---------- */
 var S;
-function def(){return {profile:null,sched:['off','off','prac','off','prac','off','game'],start:null,done:{},checks:[],pain:[],tests:[],hold:{},recheck:{},poll:{},clips:0};}
+function def(){return {profile:null,reach:null,sched:['off','off','off','off','off','off','off'],start:null,done:{},checks:[],pain:[],tests:[],hold:{},recheck:{},poll:{},clips:0};}
 function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);return Object.assign(def(),o);}}catch(e){}return def();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 S=load();
-var ui={tab:'plan',week:null,draft:null,editDays:false,notice:'',fc:{ex:null,view:'pick',answers:[],last:null},pain:{status:null,where:[],effort:null},err:'',confirmReset:false,copied:false};
+var ui={tab:'plan',week:null,draft:null,editDays:false,notice:'',fc:{ex:null,view:'pick',answers:[],last:null},pain:{status:null,where:[],effort:null},err:'',confirmReset:false,copied:false,method:'Tape measure',rimView:'Front view',touch:120,editReach:false,reachErr:''};
 var youUrl=null,refUrls={};
 
 /* ---------- dates ---------- */
@@ -244,9 +244,10 @@ function viewIntake(){
  '<div style="display:flex;gap:16px;align-items:flex-end"><div><label class="lbl" for="age" style="display:block">Your age</label><input id="age" type="number" inputmode="numeric" min="10" max="99" placeholder="e.g. 16" value="'+esc(d.age)+'"></div><div class="small" style="flex:1">Under 18? A parent or guardian approves before you start.</div></div>'+
  (minor?'<label class="card" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="consent" '+(d.consent?'checked':'')+' style="width:24px;height:24px;flex:none;margin-top:2px"><span>A parent or guardian knows I am using this app and says it is OK.</span></label>':'')+
  '<fieldset><legend>Lifting experience</legend>'+seg(['Beginner','Some lifting','Experienced'],d.exp,'exp',3)+'</fieldset>'+
+ '<fieldset><legend>Standing reach (optional)</legend><div class="small" style="margin-bottom:8px">Needed for the rim touch test. Stand flat footed next to a wall, reach one arm straight up, mark your highest fingertip point, and measure from the floor to the mark with a tape. You can skip this and add it later on the Progress tab.</div><div style="display:flex;gap:8px;align-items:center"><input id="irf" type="number" inputmode="numeric" min="5" max="10" placeholder="ft" value="'+esc(d.rf)+'" style="width:84px"><span>ft</span><input id="iri" type="number" inputmode="decimal" step="0.5" min="0" max="11.5" placeholder="in" value="'+esc(d.ri)+'" style="width:84px"><span>in</span></div></fieldset>'+
  '<fieldset><legend>Anything sore right now?</legend>'+chips(['Nothing'].concat(AREAS),d.sore,'sore')+'</fieldset>'+
- '<fieldset><legend>Teams you play on</legend>'+chips(['School','Club','Rec or other'],d.teams,'team')+'</fieldset>'+
- '<fieldset><legend>Games and practices, all teams</legend><div class="small" style="margin-bottom:8px">Tap a day to cycle: off, practice, game. Count every team.</div>'+dayGrid(d.sched)+'</fieldset>'+
+ '<fieldset><legend>Teams you play on</legend>'+chips(['None','School','Club','Rec or other'],d.teams,'team')+'</fieldset>'+
+ '<fieldset><legend>Games and practices, all teams</legend><div class="small" style="margin-bottom:8px">Tap a day to cycle: off, practice, game. Count every team. Leave all days off if you have none.</div>'+dayGrid(d.sched)+'</fieldset>'+
  (ui.err?'<div class="err" role="alert">'+esc(ui.err)+'</div>':'')+
  '<button type="button" class="btn" data-act="start">Build my 4-week plan</button>'+
  '<p class="small">Your plan and clips stay on this phone. Clips are never uploaded.</p></div>';
@@ -373,6 +374,61 @@ function spark(){
  var pts=t.map(function(x,i){return (12+i*(276/(t.length-1))).toFixed(1)+','+(70-((x.in-mn)/rg)*56).toFixed(1);}).join(' ');
  return '<svg viewBox="0 0 300 84" width="100%" height="84" role="img" aria-label="Standing vertical over time, from '+vals[0]+' to '+vals[vals.length-1]+' inches"><polyline points="'+pts+'" fill="none" stroke="var(--ink)" stroke-width="2.5"/><circle cx="'+pts.split(' ').pop().split(',')[0]+'" cy="'+pts.split(' ').pop().split(',')[1]+'" r="4" fill="var(--ink)"/></svg>';
 }
+/* ---------- rim touch test ---------- */
+var RIM={top:158,k:7,min:88,max:156,vh:510};
+function rimY(h){return 10+(RIM.top-h)*RIM.k;}
+function clampTouch(h){return Math.max(RIM.min,Math.min(RIM.max,Math.round(h*2)/2));}
+function fmtIn(i){var ft=Math.floor(i/12),r=Math.round((i-ft*12)*2)/2;if(r===12){ft++;r=0;}return ft+' ft '+r+' in';}
+function setTouchFromY(cy){var sv=document.getElementById('rimsvg');if(!sv)return;var r=sv.getBoundingClientRect();var y=(cy-r.top)/r.height*RIM.vh;ui.touch=clampTouch(RIM.top-(y-10)/RIM.k);updateRim();}
+function updateRim(){
+ var y=rimY(ui.touch),l=document.getElementById('rl'),h=document.getElementById('rh'),t=document.getElementById('rt'),o=document.getElementById('rimout');
+ if(!l)return;
+ l.setAttribute('y1',y);l.setAttribute('y2',y);h.setAttribute('cy',y);t.setAttribute('y',y-10);t.textContent=fmtIn(ui.touch);
+ if(o)o.innerHTML=rimOut();
+}
+function rimOut(){
+ var t=ui.touch,r=S.reach||0,v=t-r,ok=v>0&&v<=60;
+ return '<div class="card"><div class="right"><span class="small">Touch height</span><b>'+fmtIn(t)+'</b></div><div class="right"><span class="small">Standing reach</span><b>'+fmtIn(r)+'</b></div><div class="right" style="margin-top:6px"><span>Vertical jump</span><span class="lg">'+(ok?v+' in':'--')+'</span></div>'+(ok?'':'<div class="small" style="margin-top:6px">Move the marker above your standing reach.</div>')+'<button type="button" class="btn acc" style="margin-top:10px" data-act="logrim" '+(ok?'':'disabled')+'>Log this test</button></div>';
+}
+function rimSvg(){
+ var front=ui.rimView==='Front view',o='',OR='#E8590C',cy=rimY(120),y=rimY(ui.touch);
+ [96,108,120,132,144,156].forEach(function(h){o+='<line x1="34" x2="300" y1="'+rimY(h)+'" y2="'+rimY(h)+'" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4"/><text x="2" y="'+(rimY(h)+4)+'" font-size="11" fill="var(--muted)">'+(h/12)+' ft</text>';});
+ if(front){
+  o+='<rect x="50" y="'+rimY(147)+'" width="200" height="'+(42*RIM.k)+'" rx="3" fill="var(--panel)" stroke="var(--muted)" stroke-width="2"/>'+
+  '<rect x="116.5" y="'+rimY(138)+'" width="67" height="'+(18*RIM.k)+'" fill="none" stroke="var(--muted)" stroke-width="1.5"/>'+
+  '<polygon points="125,'+cy+' 175,'+cy+' 160,'+rimY(105)+' 140,'+rimY(105)+'" fill="none" stroke="var(--muted)" stroke-width="1" opacity=".7"/>'+
+  '<rect x="138" y="'+(cy-13)+'" width="24" height="12" rx="2" fill="'+OR+'"/>'+
+  '<ellipse cx="150" cy="'+cy+'" rx="25" ry="6" fill="none" stroke="'+OR+'" stroke-width="4"/>'+
+  '<text x="54" y="'+(rimY(147)+14)+'" font-size="10" fill="var(--muted)">Top of backboard</text>'+
+  '<text x="54" y="'+(rimY(105)-6)+'" font-size="10" fill="var(--muted)">Bottom of backboard</text>'+
+  '<text x="180" y="'+(cy+4)+'" font-size="11" fill="var(--ink)">Rim</text>'+
+  '<text x="166" y="'+(cy-6)+'" font-size="10" fill="var(--ink)">Bracket</text>';
+ }else{
+  o+='<rect x="70" y="'+rimY(147)+'" width="10" height="'+(42*RIM.k)+'" fill="var(--panel)" stroke="var(--muted)" stroke-width="2"/>'+
+  '<polygon points="88,'+(cy+3)+' 182,'+(cy+3)+' 166,'+rimY(105)+' 104,'+rimY(105)+'" fill="none" stroke="var(--muted)" stroke-width="1" opacity=".7"/>'+
+  '<rect x="80" y="'+cy+'" width="40" height="24" rx="2" fill="'+OR+'" opacity=".9"/>'+
+  '<line x1="80" y1="'+cy+'" x2="185" y2="'+cy+'" stroke="'+OR+'" stroke-width="5" stroke-linecap="round"/>'+
+  '<text x="90" y="'+(rimY(147)+4)+'" font-size="10" fill="var(--muted)">Top of backboard</text>'+
+  '<text x="124" y="'+(cy+20)+'" font-size="10" fill="var(--ink)">Bracket</text>'+
+  '<text x="192" y="'+(cy+4)+'" font-size="11" fill="var(--ink)">Rim</text>'+
+  '<text x="186" y="'+(rimY(105)+4)+'" font-size="10" fill="var(--muted)">Backboard bottom</text>';
+ }
+ o+='<line id="rl" x1="34" x2="300" y1="'+y+'" y2="'+y+'" stroke="var(--ink)" stroke-width="2.5"/><circle id="rh" cx="270" cy="'+y+'" r="11" fill="var(--ink)" stroke="var(--bg)" stroke-width="3"/><text id="rt" x="254" y="'+(y-10)+'" text-anchor="end" font-size="14" font-weight="700" fill="var(--ink)" stroke="var(--bg)" stroke-width="4" paint-order="stroke">'+fmtIn(ui.touch)+'</text>';
+ return '<svg id="rimsvg" viewBox="0 0 300 '+RIM.vh+'" width="100%" role="img" aria-label="Basketball hoop, '+(front?'front':'side')+' view, with a marker for your touch height. Rim is 10 feet.">'+o+'</svg>';
+}
+function reachCard(){
+ var r=S.reach||0,ft=r?Math.floor(r/12):'',inn=r?(r-ft*12):'';
+ return '<div class="stack" style="gap:10px"><div class="small">The rim test needs your standing reach. Measure it once with a tape: stand flat footed next to a wall, reach one arm straight up, mark your highest fingertip point on the wall, and measure from the floor to the mark.</div><div style="display:flex;gap:8px;align-items:center"><input id="rf" type="number" inputmode="numeric" min="5" max="10" placeholder="ft" value="'+ft+'" style="width:84px"><span>ft</span><input id="ri" type="number" inputmode="decimal" step="0.5" min="0" max="11.5" placeholder="in" value="'+inn+'" style="width:84px"><span>in</span></div>'+(ui.reachErr?'<div class="err" role="alert">'+esc(ui.reachErr)+'</div>':'')+'<button type="button" class="btn" data-act="savereach">Save standing reach</button></div>';
+}
+function viewRim(){
+ if(!S.reach||ui.editReach)return reachCard();
+ return '<div class="stack" style="gap:10px"><div class="right small"><span>Standing reach: <b>'+fmtIn(S.reach)+'</b></span><button type="button" class="btn ghost sm" data-act="editreach">Edit</button></div>'+
+ seg(['Front view','Side view'],ui.rimView,'rview',2)+
+ '<div class="small">Jump, touch the highest point you can, then place the marker where your hand touched. Drag on the right side, tap the diagram, or use the buttons. Side view is for when you approach from the side and touch the rim bracket. Standard indoor rim, 10 ft. The diagram is approximate.</div>'+
+ '<div style="position:relative">'+rimSvg()+'<div id="rimdrag" style="position:absolute;top:0;right:0;bottom:0;width:30%;touch-action:none;cursor:ns-resize"></div></div>'+
+ '<div style="display:flex;gap:8px"><button type="button" class="btn ghost sm" style="flex:1" data-act="nudge" data-v="-1">Down 1 in</button><button type="button" class="btn ghost sm" style="flex:1" data-act="nudge" data-v="1">Up 1 in</button></div>'+
+ '<div id="rimout">'+rimOut()+'</div></div>';
+}
 function viewProgress(){
  var n=Object.keys(S.done).length,dots=[];for(var i=0;i<12;i++)dots.push('<i class="'+(i<n?'on':'')+'"></i>');
  var t=S.tests,first=t.length?t[0].in:null,now=t.length?t[t.length-1].in:null;
@@ -381,7 +437,7 @@ function viewProgress(){
  return '<div class="stack">'+head('Progress','Week '+curWeek()+' of 4')+
  '<div class="card"><div class="right"><b>Sessions done</b><span>'+n+' of 12</span></div><div class="dots" aria-hidden="true">'+dots.join('')+'</div><div class="small" style="margin-top:6px">Streak: '+streak()+' week'+(streak()===1?'':'s')+' in a row with 2 or more sessions.</div></div>'+
  '<div class="card"><div class="right"><b>Standing vertical</b></div>'+spark()+'<div class="right small"><span>Start '+(first!==null?first+' in':'--')+'</span><span>Now '+(now!==null?now+' in':'--')+'</span></div>'+
- '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><label for="vt" class="small">Inches</label><input id="vt" type="number" inputmode="decimal" step="0.5" min="1" max="60" placeholder="e.g. 22"><button type="button" class="btn sm" data-act="logtest">Log a test</button></div></div>'+
+ '<div class="lbl" style="margin-top:14px">Log a test</div>'+seg(['Tape measure','Rim touch test'],ui.method,'method',2)+'<div style="margin-top:10px">'+(ui.method==='Tape measure'?'<div class="small" style="margin-bottom:8px">Enter how far your touch is above your standing reach.</div><div style="display:flex;gap:8px;align-items:center"><label for="vt" class="small">Inches</label><input id="vt" type="number" inputmode="decimal" step="0.5" min="1" max="60" placeholder="e.g. 22"><button type="button" class="btn sm" data-act="logtest">Log a test</button></div>':viewRim())+'</div></div>'+
  '<div class="card accent"><div class="lbl" style="color:var(--accent-ink)">Form checks</div>'+(checks?'<div class="stack" style="gap:6px">'+checks+'</div>':'<div class="small" style="color:var(--ink)">None yet. Tap Check form on a workout to film your first set.</div>')+'</div>'+
  '<div class="card"><div class="lbl">Body check-ins, last 7 days</div><div class="week7">'+days.join('')+'</div><div class="small" style="margin-top:8px">Aches show here so you can spot a pattern.</div></div>'+
  sendCard()+
@@ -418,6 +474,7 @@ function wireCompare(){
 /* ---------- events ---------- */
 function toggle(arr,v,excl){var i=arr.indexOf(v);if(v===excl)return [v];arr=arr.filter(function(x){return x!==excl;});if(i>-1&&v!==excl)arr=arr.filter(function(x){return x!==v;});else arr.push(v);return arr.length?arr:(excl?[excl]:arr);}
 document.addEventListener('click',function(ev){
+ if(ev.target.closest&&ev.target.closest('#rimsvg')){setTouchFromY(ev.clientY);return;}
  var b=ev.target.closest('[data-act]');if(!b||b.tagName==='INPUT')return;
  var a=b.getAttribute('data-act'),v=b.getAttribute('data-v'),i=Number(b.getAttribute('data-i'));
  var d=ui.draft,f=ui.fc;
@@ -425,13 +482,21 @@ document.addEventListener('click',function(ev){
  if(a==='sport'){d.sport=v;render();return;}
  if(a==='exp'){d.exp=v;render();return;}
  if(a==='sore'){d.sore=toggle(d.sore,v,'Nothing');render();return;}
- if(a==='team'){d.teams=toggle(d.teams,v,null);render();return;}
+ if(a==='team'){d.teams=toggle(d.teams,v,'None');render();return;}
+ if(a==='method'){ui.method=v;render();return;}
+ if(a==='rview'){ui.rimView=v;render();return;}
+ if(a==='nudge'){ui.touch=clampTouch(ui.touch+Number(v));updateRim();return;}
+ if(a==='editreach'){ui.editReach=true;ui.reachErr='';render();return;}
+ if(a==='savereach'){var rr=(parseFloat(document.getElementById('rf').value)||0)*12+(parseFloat(document.getElementById('ri').value)||0);if(rr<60||rr>120){ui.reachErr='Enter a reach between 5 ft and 10 ft.';render();return;}S.reach=rr;ui.editReach=false;ui.reachErr='';save();render();return;}
+ if(a==='logrim'){var vv=ui.touch-(S.reach||0);if(!S.reach||vv<=0||vv>60)return;S.tests.push({date:ymd(new Date()),in:vv,method:'rim',touch:ui.touch});save();render();return;}
  if(a==='cycle'){var tgt=S.profile?S.sched:d.sched,o=['off','prac','game'];tgt[i]=o[(o.indexOf(tgt[i])+1)%3];render();return;}
  if(a==='start'){
   var age=Number(d.age);
   if(!d.age||age<10||age>99){ui.err='Enter your age to continue.';render();return;}
   if(age<18&&!d.consent){ui.err='A parent or guardian needs to say it is OK before you start.';render();return;}
-  ui.err='';S.profile={sport:d.sport,exp:d.exp,teams:d.teams,sore:d.sore,minor:age<18};S.sched=d.sched.slice();S.start=ymd(new Date());
+  var reach=null;
+  if(d.rf!==''||d.ri!==''){var rr0=(parseFloat(d.rf)||0)*12+(parseFloat(d.ri)||0);if(rr0<60||rr0>120){ui.err='Check your standing reach (between 5 ft and 10 ft), or leave it blank for now.';render();return;}reach=rr0;}
+  ui.err='';S.reach=reach;S.profile={sport:d.sport,exp:d.exp,teams:d.teams,sore:d.sore,minor:age<18};S.sched=d.sched.slice();S.start=ymd(new Date());
   if(d.sore.indexOf('Nothing')<0)S.hold.plyo=ymd(addDays(new Date(),6));
   save();ui.tab='plan';ui.notice=d.sore.indexOf('Nothing')<0?'You listed something sore, so jump work is low-impact for your first week.':'';render();window.scrollTo(0,0);return;
  }
@@ -481,8 +546,13 @@ document.addEventListener('change',function(ev){
  if(t.id==='clip'||t.id==='clip2'){var file=t.files&&t.files[0];if(!file)return;if(youUrl)URL.revokeObjectURL(youUrl);youUrl=URL.createObjectURL(file);S.clips=S.clips||0;ui.fc.view='compare';ui.fc.answers=[];render();window.scrollTo(0,0);return;}
  if(t.id==='refIn'){var rf=t.files&&t.files[0];if(!rf)return;if(refUrls[ui.fc.ex])URL.revokeObjectURL(refUrls[ui.fc.ex]);refUrls[ui.fc.ex]=URL.createObjectURL(rf);render();return;}
 });
-document.addEventListener('input',function(ev){if(ev.target.id==='age')ui.draft.age=ev.target.value;});
-function newDraft(){return {sport:'Volleyball',age:'',consent:false,exp:'Beginner',teams:['School'],sore:['Nothing'],sched:['off','off','prac','off','prac','off','game']};}
+document.addEventListener('input',function(ev){var id=ev.target.id;if(id==='age')ui.draft.age=ev.target.value;if(id==='irf')ui.draft.rf=ev.target.value;if(id==='iri')ui.draft.ri=ev.target.value;});
+var dragging=false;
+document.addEventListener('pointerdown',function(ev){var dz=ev.target.closest&&ev.target.closest('#rimdrag');if(!dz)return;dragging=true;try{dz.setPointerCapture(ev.pointerId);}catch(e){}setTouchFromY(ev.clientY);ev.preventDefault();});
+document.addEventListener('pointermove',function(ev){if(dragging)setTouchFromY(ev.clientY);});
+document.addEventListener('pointerup',function(){dragging=false;});
+document.addEventListener('pointercancel',function(){dragging=false;});
+function newDraft(){return {sport:'Volleyball',age:'',consent:false,exp:'Beginner',rf:'',ri:'',teams:['None'],sore:['Nothing'],sched:['off','off','off','off','off','off','off']};}
 ui.draft=newDraft();
 render();
 })();
