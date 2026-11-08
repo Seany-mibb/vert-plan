@@ -170,7 +170,7 @@ var AREAS=['Knee','Ankle','Back','Hip','Shoulder','Other'];
 
 /* ---------- state ---------- */
 var S;
-function def(){return {profile:null,reach:null,sched:['off','off','off','off','off','off','off'],start:null,done:{},checks:[],pain:[],tests:[],hold:{},recheck:{},poll:{},clips:0};}
+function def(){return {profile:null,reach:null,lifts:{},sched:['off','off','off','off','off','off','off'],start:null,done:{},checks:[],pain:[],tests:[],hold:{},recheck:{},poll:{},clips:0};}
 function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);return Object.assign(def(),o);}}catch(e){}return def();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 S=load();
@@ -284,7 +284,7 @@ function viewPlan(){
 
 function exRow(id,i,doneArr,week){
  var e=EX[id],chk=doneArr.indexOf(id)>-1;
- return '<div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span></div>'+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div>';
+ return '<div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div>';
 }
 function viewToday(){
  var now=new Date(),dow=now.getDay(),key=ymd(now),cw=curWeek(),sd=S.sched[dow],k=kindFor(dow,cw,true),done=S.done[key];
@@ -378,6 +378,55 @@ function spark(){
  var pts=t.map(function(x,i){return (12+i*(276/(t.length-1))).toFixed(1)+','+(70-((x.in-mn)/rg)*56).toFixed(1);}).join(' ');
  return '<svg viewBox="0 0 300 84" width="100%" height="84" role="img" aria-label="Standing vertical over time, from '+vals[0]+' to '+vals[vals.length-1]+' inches"><polyline points="'+pts+'" fill="none" stroke="var(--ink)" stroke-width="2.5"/><circle cx="'+pts.split(' ').pop().split(',')[0]+'" cy="'+pts.split(' ').pop().split(',')[1]+'" r="4" fill="var(--ink)"/></svg>';
 }
+/* ---------- lift log ---------- */
+var LOGGABLE=['bsq','cdl','wsj','row','ohp'];
+function liftLast(id,key){var a=(S.lifts[id]||[]).filter(function(x){return x.date!==key;});return a.length?a[a.length-1].lb:null;}
+function liftToday(id,key){var a=(S.lifts[id]||[]).filter(function(x){return x.date===key;});return a.length?a[0].lb:'';}
+function liftBox(id){
+ if(LOGGABLE.indexOf(id)<0)return '';
+ var key=ymd(new Date()),last=liftLast(id,key);
+ return '<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><label class="small" for="lw_'+id+'">Heaviest set</label><input id="lw_'+id+'" type="number" inputmode="decimal" step="2.5" min="0" max="999" placeholder="lb" value="'+esc(String(liftToday(id,key)))+'" style="width:84px" data-lift="'+id+'"><span class="small">lb'+(last?' · last '+last:'')+'</span></div>';
+}
+function saveLift(id,val){
+ var n=parseFloat(val),key=ymd(new Date()),a=S.lifts[id]||(S.lifts[id]=[]);
+ S.lifts[id]=a=a.filter(function(x){return x.date!==key;});
+ if(n>0&&n<=999)a.push({date:key,lb:n});
+ a.sort(function(x,y){return x.date<y.date?-1:x.date>y.date?1:0;});
+ save();
+}
+function saveAllLifts(){LOGGABLE.forEach(function(id){var el=document.getElementById('lw_'+id);if(el&&el.value!=='')saveLift(id,el.value);});}
+function shortDate(s){return Number(s.slice(5,7))+'/'+Number(s.slice(8,10));}
+function liftChart(a){
+ var vals=a.map(function(x){return x.lb;}),mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),pad=mn===mx?5:(mx-mn)*0.15,lo=mn-pad,hi=mx+pad;
+ function px(i){return a.length===1?164:44+i*(244/(a.length-1));}
+ function py(v){return 14+(hi-v)/(hi-lo)*84;}
+ var pts=a.map(function(x,i){return px(i).toFixed(1)+','+py(x.lb).toFixed(1);}).join(' '),o='';
+ o+='<line x1="40" x2="292" y1="'+py(mn).toFixed(1)+'" y2="'+py(mn).toFixed(1)+'" stroke="var(--line)" stroke-dasharray="2 4"/><line x1="40" x2="292" y1="'+py(mx).toFixed(1)+'" y2="'+py(mx).toFixed(1)+'" stroke="var(--line)" stroke-dasharray="2 4"/>';
+ o+='<text x="2" y="'+(py(mx)+4).toFixed(1)+'" font-size="11" fill="var(--muted)">'+mx+'</text>';
+ if(mn!==mx)o+='<text x="2" y="'+(py(mn)+4).toFixed(1)+'" font-size="11" fill="var(--muted)">'+mn+'</text>';
+ if(a.length>1)o+='<polyline points="'+pts+'" fill="none" stroke="var(--ink)" stroke-width="2.5"/>';
+ a.forEach(function(x,i){o+='<circle cx="'+px(i).toFixed(1)+'" cy="'+py(x.lb).toFixed(1)+'" r="'+(i===a.length-1?5:3.5)+'" fill="var(--ink)"/>';});
+ o+='<text x="40" y="122" font-size="11" fill="var(--muted)">'+shortDate(a[0].date)+'</text>';
+ if(a.length>1)o+='<text x="292" y="122" font-size="11" text-anchor="end" fill="var(--muted)">'+shortDate(a[a.length-1].date)+'</text>';
+ return '<svg viewBox="0 0 300 128" width="100%" role="img" aria-label="Heaviest set over time, from '+vals[0]+' to '+vals[vals.length-1]+' pounds">'+o+'</svg>';
+}
+function viewLifts(){
+ var sel=ui.liftSel;
+ if(!sel)LOGGABLE.forEach(function(id){if(!sel&&(S.lifts[id]||[]).length)sel=id;});
+ sel=sel||'bsq';
+ var a=S.lifts[sel]||[];
+ var chipsH='<div class="chips">'+LOGGABLE.map(function(id){return '<button type="button" class="chip" data-act="lift" data-v="'+id+'" aria-pressed="'+(id===sel)+'">'+esc(EX[id].name)+'</button>';}).join('')+'</div>';
+ var body;
+ if(!a.length){body='<div class="small" style="padding:14px 0">No weights logged for this exercise yet. Type your heaviest set in the Today tab during your workout.</div>';}
+ else{
+  var vals=a.map(function(x){return x.lb;}),best=Math.max.apply(null,vals),latest=vals[vals.length-1],diff=latest-vals[0];
+  body=liftChart(a)+'<div class="right small"><span>Start '+vals[0]+' lb</span><span>Best '+best+' lb</span><span>Latest '+latest+' lb</span></div>'+
+  (a.length>1?'<div style="margin-top:8px;font-weight:600">'+(diff>0?'Up '+diff+' lb since your first log.':diff<0?'Down '+Math.abs(diff)+' lb since your first log.':'Same as your first log.')+'</div>':'<div class="small" style="margin-top:8px">Log a second session to see your trend.</div>')+
+  '<button type="button" class="btn ghost sm" style="margin-top:10px" data-act="dellift">Remove last entry</button>';
+ }
+ return '<div class="card"><div class="right"><b>Lift progress</b></div><div style="margin:8px 0 10px">'+chipsH+'</div>'+body+'</div>';
+}
+
 /* ---------- rim touch test ---------- */
 var RIM={top:158,k:7,min:88,max:156,vh:510};
 function rimY(h){return 10+(RIM.top-h)*RIM.k;}
@@ -442,7 +491,7 @@ function viewProgress(){
  '<div class="card"><div class="right"><b>Sessions done</b><span>'+n+' of 12</span></div><div class="dots" aria-hidden="true">'+dots.join('')+'</div><div class="small" style="margin-top:6px">Streak: '+streak()+' week'+(streak()===1?'':'s')+' in a row with 2 or more sessions.</div></div>'+
  '<div class="card"><div class="right"><b>Standing vertical</b></div>'+spark()+'<div class="right small"><span>Start '+(first!==null?first+' in':'--')+'</span><span>Now '+(now!==null?now+' in':'--')+'</span></div>'+
  '<div class="lbl" style="margin-top:14px">Log a test</div>'+seg(['Tape measure','Rim touch test'],ui.method,'method',2)+'<div style="margin-top:10px">'+(ui.method==='Tape measure'?'<div class="small" style="margin-bottom:8px">Enter how far your touch is above your standing reach.</div><div style="display:flex;gap:8px;align-items:center"><label for="vt" class="small">Inches</label><input id="vt" type="number" inputmode="decimal" step="0.5" min="1" max="60" placeholder="e.g. 22"><button type="button" class="btn sm" data-act="logtest">Log a test</button></div>':viewRim())+'</div></div>'+
- '<div class="card accent"><div class="lbl" style="color:var(--accent-ink)">Form checks</div>'+(checks?'<div class="stack" style="gap:6px">'+checks+'</div>':'<div class="small" style="color:var(--ink)">None yet. Tap Check form on a workout to film your first set.</div>')+'</div>'+
+ viewLifts()+'<div class="card accent"><div class="lbl" style="color:var(--accent-ink)">Form checks</div>'+(checks?'<div class="stack" style="gap:6px">'+checks+'</div>':'<div class="small" style="color:var(--ink)">None yet. Tap Check form on a workout to film your first set.</div>')+'</div>'+
  '<div class="card"><div class="lbl">Body check-ins, last 7 days</div><div class="week7">'+days.join('')+'</div><div class="small" style="margin-top:8px">Aches show here so you can spot a pattern.</div></div>'+
  sendCard()+
  '<button type="button" class="btn ghost" data-act="reset">'+(ui.confirmReset?'Tap again to erase everything':'Start over')+'</button></div>';
@@ -488,6 +537,8 @@ document.addEventListener('click',function(ev){
  if(a==='sore'){d.sore=toggle(d.sore,v,'Nothing');render();return;}
  if(a==='team'){d.teams=toggle(d.teams,v,'None');render();return;}
  if(a==='method'){ui.method=v;render();return;}
+ if(a==='lift'){ui.liftSel=v;render();return;}
+ if(a==='dellift'){var la=S.lifts[ui.liftSel||'bsq'];if(la&&la.length){la.pop();save();}render();return;}
  if(a==='rview'){ui.rimView=v;render();return;}
  if(a==='nudge'){ui.touch=clampTouch(ui.touch+Number(v));updateRim();return;}
  if(a==='editreach'){ui.editReach=true;ui.reachErr='';render();return;}
@@ -507,7 +558,7 @@ document.addEventListener('click',function(ev){
  if(a==='week'){ui.week=Number(v);render();return;}
  if(a==='editdays'){ui.editDays=true;render();return;}
  if(a==='savedays'){ui.editDays=false;save();ui.notice='Plan updated for your new days.';render();return;}
- if(a==='finish'){var key=ymd(new Date()),k=kindFor(new Date().getDay(),curWeek(),true),list=(ui.todayEx&&ui.todayEx.key===key)?ui.todayEx.list:[];S.done[key]={kind:k,ex:list};save();ui.pain={status:null,where:[],effort:null};go('checkin');return;}
+ if(a==='finish'){saveAllLifts();var key=ymd(new Date()),k=kindFor(new Date().getDay(),curWeek(),true),list=(ui.todayEx&&ui.todayEx.key===key)?ui.todayEx.list:[];S.done[key]={kind:k,ex:list};save();ui.pain={status:null,where:[],effort:null};go('checkin');return;}
  if(a==='gocheckin'){ui.pain={status:null,where:[],effort:null};go('checkin');return;}
  if(a==='checkform'){ui.fc={ex:v,view:'record',answers:[],last:null};ui.tab='form';render();window.scrollTo(0,0);return;}
  if(a==='fcback'){ui.fc.view=ui.fc.view==='compare'?'record':'pick';render();return;}
@@ -543,6 +594,7 @@ document.addEventListener('change',function(ev){
  var t=ev.target;
  if(t.id==='age'){var was=ui.draft.age!==''&&Number(ui.draft.age)<18;ui.draft.age=t.value;var now=t.value!==''&&Number(t.value)<18;if(was!==now)render();return;}
  if(t.id==='consent'){ui.draft.consent=t.checked;return;}
+ if(t.getAttribute&&t.getAttribute('data-lift')){saveLift(t.getAttribute('data-lift'),t.value);return;}
  if(t.getAttribute&&t.getAttribute('data-act')==='toggleex'){
   var key=ymd(new Date());if(!ui.todayEx||ui.todayEx.key!==key)ui.todayEx={key:key,list:[]};
   var id=t.getAttribute('data-v'),l=ui.todayEx.list,ix=l.indexOf(id);if(t.checked&&ix<0)l.push(id);if(!t.checked&&ix>-1)l.splice(ix,1);return;
