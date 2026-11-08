@@ -221,7 +221,9 @@ function buildWeek(sched){
  var level=pts<6?'Light':(pts<=8.5?'Moderate':'High');
  return {t:t,notes:notes,pts:pts,level:level};
 }
+var TEST_SUNDAY_PLYO=true; // TEMPORARY for testing: Sunday is always the plyo day. Set to false to remove.
 function kindFor(dow,week,isCurrent){
+ if(TEST_SUNDAY_PLYO&&dow===0)return 'plyo';
  var w=buildWeek(S.sched),k=w.t[dow];
  if(k==='plyo'&&w.level==='High')k='plyoL';
  if(isCurrent&&k){
