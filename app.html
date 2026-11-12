@@ -126,16 +126,20 @@ var CUES={
  balance:'Slow the jump down and stick the landing before you add height.'
 };
 var QS_SQ=[{q:'Did your knees cave in?',bad:'Yes',flag:'knee'},{q:'Did your heels stay down?',bad:'No',flag:'heel'},{q:'Did your chest stay up?',bad:'No',flag:'chest'}];
+var LK_SQ=['Knees at the lowest point: over your toes, not caving in.','Depth: do you sit to the same box height as the reference?','Chest and back: is your chest as upright as the reference?','Heels: do they stay flat on the floor the whole way?'];
+var LK_WSJ=['The dip before you jump: is it as deep as the reference?','Takeoff: do you push through your whole foot like the reference?','Knees on landing: over your toes, not caving in.','Landing sound: is it as quiet as the reference?'];
+var LK_APPR=['Last two steps: are they as fast and smooth as the reference?','Arms: do they swing back and up like the reference?','Knees on landing: over your toes, not caving in.','Landing: both feet together and as quiet as the reference?'];
+var LK_SLS=['Knee over the step foot: in line with your toes, not caving in.','The dip before you jump: is it as deep as the reference?','Arms: do they swing up with the jump?','Landing: quiet and balanced like the reference?'];
 var QS_SLS=[{q:'Did your knee cave in?',bad:'Yes',flag:'knee'},{q:'Was your landing quiet?',bad:'No',flag:'loud'},{q:'Did you land balanced, without wobbling?',bad:'No',flag:'balance'}];
 var QS_LAND=[{q:'Did your knees cave in on landing?',bad:'Yes',flag:'knee'},{q:'Was your landing quiet?',bad:'No',flag:'loud'},{q:'Did both feet land together?',bad:'No',flag:'uneven'}];
 var EX={
  prep:{name:'Warm-up and ankle prep',d:'7 min · ankle and knee stability',q:'ankle stability warm up volleyball'},
- bsq:{name:'Box squat',d:'4 sets of 5 · heavy',check:QS_SQ,q:'box squat form'},
+ bsq:{name:'Box squat',d:'4 sets of 5 · heavy',check:QS_SQ,look:LK_SQ,q:'box squat form'},
  cdl:{name:'Conventional deadlift',d:'4 sets of 5 · lighter than the squats',q:'conventional deadlift form'},
  sprint:{name:'Sprints',d:'4 sets of 40 to 50 m',q:'sprint technique for jumping'},
- wsj:{name:'Weighted squat jumps',d:'4 sets of 5 to 8 · soft landing',check:QS_LAND,q:'weighted squat jumps technique'},
+ wsj:{name:'Weighted squat jumps',d:'4 sets of 5 to 8 · soft landing',check:QS_LAND,look:LK_WSJ,q:'weighted squat jumps technique'},
  ktj:{name:'Knees to jump',d:'4 sets of 5 to 8',q:'knees to jump exercise technique'},
- sls:{name:'Single leg step up jumps',d:'4 sets of 8',check:QS_SLS,q:'single leg step up jump technique'},
+ sls:{name:'Single leg step up jumps',d:'4 sets of 8',check:QS_SLS,look:LK_SLS,q:'single leg step up jump technique'},
  bound:{name:'Bounds',d:'3 sets of 20 m',q:'bounding exercise technique'},
  depth:{name:'Depth jumps',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'depth jump technique'},
  wpogo:{name:'Weighted pogos',d:'3 sets of 10 · last set with no weight',q:'weighted pogo jumps'},
@@ -146,7 +150,7 @@ var EX={
  land:{name:'Block landing practice',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'volleyball block jump landing technique'},
  foot:{name:'Footwork ladder',d:'3 rounds of 30 seconds',q:'volleyball footwork ladder drills'},
  pogo:{name:'Pogo jumps',d:'4 sets of 8 · 2 small, 1 high',q:'pogo jumps technique'},
- appr:{name:'Approach jumps',d:'4 sets of 5 to 8',check:QS_LAND,q:'approach jump technique vertical'},
+ appr:{name:'Approach jumps',d:'4 sets of 5 to 8',check:QS_LAND,look:LK_APPR,q:'approach jump technique vertical'},
  blk:{name:'Block jump',d:'3 sets of 5 · soft landing',check:QS_LAND,q:'volleyball block jump technique'},
  pu:{name:'Push-up',d:'3 sets of 10',q:'push up form'},
  row:{name:'Dumbbell row',d:'3 sets of 10 each arm',q:'dumbbell row form'},
@@ -327,7 +331,7 @@ function viewForm(){
   '<div class="two"><div><div class="vid" id="refBox"><video id="vRef" playsinline muted></video><div class="ph" id="refPh"><span>No demo for this exercise yet</span><label class="btn ghost sm" for="refIn">Add demo video</label><input id="refIn" type="file" accept="video/*" hidden></div></div><div class="cap">Reference <span>(demo)</span></div></div>'+
   '<div><div class="vid you"><video id="vYou" playsinline muted></video></div><div class="cap">You <span>(this set)</span></div></div></div>'+
   '<div style="display:flex;align-items:center;gap:10px"><button type="button" class="btn sm" id="pp" style="width:96px">Play</button><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub both videos"><button type="button" class="btn ghost sm" id="spd" aria-label="Playback speed">1x</button></div>'+
-  '<p class="small" style="margin-top:-4px">Pause at the lowest point and compare your knees to the reference.</p>'+
+  '<div class="card"><div class="lbl" style="font-weight:700">Compare these points</div><ul style="margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:4px">'+(e.look||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="small" style="margin-top:8px">Pause both videos at the same moment, then look at each point.</div></div>'+
   '<div class="card accent" id="qs">'+qsHtml(qs,ans)+'</div>'+
   '<button type="button" class="btn" data-act="savecheck" '+(all?'':'disabled')+'>Save my check</button></div>';
  }
@@ -335,8 +339,8 @@ function viewForm(){
  var c=f.last,fl=c.flags,good=c.good;
  var p=S.poll||{};
  return '<div class="stack">'+head('What to work on',null,e.name+' · saved')+
- (fl.length?fl.map(function(x){return '<div class="card accent"><div class="eyebrow" style="color:var(--accent-ink);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Flagged</div><b>'+esc(x.label)+'</b><div class="cue">Try this: '+esc(CUES[x.flag])+'</div></div>';}).join('')+'<p class="small">If it keeps happening or something hurts, ask your coach or a physical therapist.</p>':'<div class="card"><b>No flags this time.</b> Keep the same cues and re-check after a heavier week.</div>')+
- (good.length?'<div class="card"><div class="eyebrow" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Looked good</div>'+good.map(esc).join(', ')+'</div>':'')+
+ (fl.length?fl.map(function(x){return '<div class="card accent"><div class="eyebrow" style="color:var(--accent-ink);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Different from the reference</div><b>'+esc(x.label)+'</b><div class="cue">Try this: '+esc(CUES[x.flag])+'</div></div>';}).join('')+'<p class="small">If it keeps happening or something hurts, ask your coach or a physical therapist.</p>':'<div class="card"><b>Same as the reference on every point.</b> Keep the same cues and re-check after a heavier week.</div>')+
+ (good.length?'<div class="card"><div class="eyebrow" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Same as the reference</div>'+good.map(esc).join(', ')+'</div>':'')+
  '<div class="card right"><div><b>Re-check in 3 days</b><div class="small">Film the same lift and compare your two clips</div></div><button type="button" class="btn sm '+(S.recheck[f.ex]?'':'ghost')+'" data-act="recheck" aria-pressed="'+(!!S.recheck[f.ex])+'" style="width:84px">'+(S.recheck[f.ex]?'On':'Off')+'</button></div>'+
  '<div class="card dash"><div class="small" style="font-weight:700;color:var(--muted);margin-bottom:8px">Help us decide what to build</div><div class="lbl">Want the app to check this for you automatically?</div>'+seg(['Yes','Maybe','No'],p.auto,'auto',3)+
  '<div style="margin-top:12px"><button type="button" class="btn accl" data-act="waitlist" aria-pressed="'+(!!p.waitlist)+'">'+(p.waitlist?'You are on the waitlist':'Join the waitlist for automatic checks')+'</button><div class="small" style="margin-top:6px">We message you when it is ready. No payment.</div></div></div>'+
