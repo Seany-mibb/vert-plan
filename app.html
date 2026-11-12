@@ -288,7 +288,7 @@ function viewPlan(){
 
 function exRow(id,i,doneArr,week){
  var e=EX[id],chk=doneArr.indexOf(id)>-1;
- return '<div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div>';
+ return '<div class="exw"><div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+infoBtn(id)+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div>'+infoPanel(id)+'</div>';
 }
 function viewToday(){
  var now=new Date(),dow=now.getDay(),key=ymd(now),cw=curWeek(),sd=S.sched[dow],k=kindFor(dow,cw,true),done=S.done[key];
@@ -382,6 +382,37 @@ function spark(){
  var pts=t.map(function(x,i){return (12+i*(276/(t.length-1))).toFixed(1)+','+(70-((x.in-mn)/rg)*56).toFixed(1);}).join(' ');
  return '<svg viewBox="0 0 300 84" width="100%" height="84" role="img" aria-label="Standing vertical over time, from '+vals[0]+' to '+vals[vals.length-1]+' inches"><polyline points="'+pts+'" fill="none" stroke="var(--ink)" stroke-width="2.5"/><circle cx="'+pts.split(' ').pop().split(',')[0]+'" cy="'+pts.split(' ').pop().split(',')[1]+'" r="4" fill="var(--ink)"/></svg>';
 }
+/* ---------- why this exercise (studies) ---------- */
+var STUDIES={
+ mark:{t:'Does plyometric training improve vertical jump height? A meta-analytical review',j:'British Journal of Sports Medicine, 2007',u:'https://pubmed.ncbi.nlm.nih.gov/17347316/',f:'Pooled across studies, plyometric (jump) training raised vertical jump height: about 4.7% for the squat jump, 8.7% for the countermovement jump, and 7.5% for the countermovement jump with arm swing.'},
+ vill:{t:'Determining variables of plyometric training for improving vertical jump height performance: a meta-analysis',j:'Journal of Strength and Conditioning Research, 2009',u:'https://pubmed.ncbi.nlm.nih.gov/19197203/',f:'Across 56 studies, programs over 10 weeks with more than 20 sessions and over 50 jumps per session had the best chance of gains. Mixing jump types worked better than one type, and added weight gave no extra benefit.'},
+ wis:{t:'Strong correlation of maximal squat strength with sprint performance and vertical jump height in elite soccer players',j:'British Journal of Sports Medicine, 2004',u:'https://pubmed.ncbi.nlm.nih.gov/15155427/',f:'In 17 elite male soccer players, half squat strength was strongly linked to sprint and jump height. The authors recommend maximal strength training.'},
+ hew:{t:'The effect of neuromuscular training on the incidence of knee injury in female athletes. A prospective study',j:'American Journal of Sports Medicine, 1999',u:'https://pubmed.ncbi.nlm.nih.gov/10569353/',f:'Female athletes who did a specific plyometric training program had fewer knee injuries (0.12 per 1,000 exposures) than untrained female athletes (0.43).'},
+ bahr:{t:'A twofold reduction in the incidence of acute ankle sprains in volleyball after the introduction of an injury prevention program: a prospective cohort study',j:'Scandinavian Journal of Medicine & Science in Sports, 1997',u:'https://doi.org/10.1111/j.1600-0838.1997.tb00135.x',f:'Ankle sprains in volleyball fell from 0.9 to 0.5 per 1,000 player hours after an injury prevention program was introduced.'},
+ behm:{t:'Canadian Society for Exercise Physiology position paper: resistance training in children and adolescents',j:'Applied Physiology, Nutrition, and Metabolism, 2008',u:'https://brocku.scholaris.ca/items/adbd2d94-b7c4-474f-a1c1-0cd18b2a204a',f:'Resistance training that fits the athlete, increases gradually and is supervised by qualified instructors can produce functional and health benefits for children and teens.'}
+};
+var UP_WHY='Upper body strength work is part of a balanced program. Research supports resistance training for teens when it increases gradually and is supervised.';
+var INFO={
+ prep:{why:'Injury prevention programs that include ankle and knee work have been linked to fewer injuries, so every session starts here.',refs:['bahr','hew']},
+ bsq:{why:'Lower body strength is linked to jumping and sprinting, so the heavy day builds that base first.',refs:['wis','behm']},
+ cdl:{why:'Strength training builds the base for jumping. Research supports it for teens when it increases gradually and is supervised.',refs:['behm']},
+ wsj:{why:'Jump training raises vertical jump height. One review found that added weight gave no extra benefit, so keep the load light and focus on a soft landing.',refs:['mark','vill']},
+ ktj:{why:'Jump training like this has been shown to raise vertical jump height.',refs:['mark','vill']},
+ appr:{why:'Jumps with an arm swing are part of the jump training shown to raise vertical jump height. Landing practice has been linked to fewer knee injuries in female athletes.',refs:['mark','hew']},
+ pogo:{why:'Short, quick jumps are one type of jump training, which has been shown to raise vertical jump height.',refs:['mark','vill']},
+ sls:{why:'Single leg jumps are one type of jump training, which has been shown to raise vertical jump height. Landing control matters: neuromuscular training has been linked to fewer knee injuries.',refs:['mark','hew']},
+ pu:{why:UP_WHY,refs:['behm']},row:{why:UP_WHY,refs:['behm']},ohp:{why:UP_WHY,refs:['behm']}
+};
+function infoBtn(id){
+ if(!INFO[id])return '';
+ return '<button type="button" class="btn ghost sm" data-act="info" data-v="'+id+'" aria-expanded="'+(ui.info===id)+'" aria-label="Why this exercise: '+esc(EX[id].name)+'" style="width:44px;min-height:44px;padding:0;font-weight:700">i</button>';
+}
+function infoPanel(id){
+ if(!INFO[id]||ui.info!==id)return '';
+ var n=INFO[id];
+ return '<div class="card" style="margin-top:6px"><div class="lbl" style="font-weight:700">Why this exercise</div><div style="margin:4px 0 10px">'+esc(n.why)+'</div><div class="lbl" style="font-weight:700">Studies</div>'+n.refs.map(function(k){var s=STUDIES[k];return '<div style="margin-top:8px"><a class="demo" href="'+s.u+'" target="_blank" rel="noopener">'+esc(s.t)+'</a><div class="small">'+esc(s.j)+'</div><div class="small" style="margin-top:2px">'+esc(s.f)+'</div></div>';}).join('')+'<p class="small" style="margin-top:10px">Research describes groups of athletes and may not match you. If something hurts, ask a coach or physical therapist.</p></div>';
+}
+
 /* ---------- lift log ---------- */
 var LOGGABLE=['bsq','cdl','wsj','row','ohp'];
 function liftLast(id,key){var a=(S.lifts[id]||[]).filter(function(x){return x.date!==key;});return a.length?a[a.length-1].lb:null;}
@@ -542,6 +573,7 @@ document.addEventListener('click',function(ev){
  if(a==='team'){d.teams=toggle(d.teams,v,'None');render();return;}
  if(a==='method'){ui.method=v;render();return;}
  if(a==='lift'){ui.liftSel=v;render();return;}
+ if(a==='info'){ui.info=(ui.info===v?null:v);render();return;}
  if(a==='dellift'){var la=S.lifts[ui.liftSel||'bsq'];if(la&&la.length){la.pop();save();}render();return;}
  if(a==='rview'){ui.rimView=v;render();return;}
  if(a==='nudge'){ui.touch=clampTouch(ui.touch+Number(v));updateRim();return;}
