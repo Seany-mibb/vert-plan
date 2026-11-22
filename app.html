@@ -81,6 +81,7 @@ input[type=number]{min-height:44px;width:120px;border:1.5px solid var(--line);bo
 .vid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .vid.you{border:2px solid var(--accent)}
 .vid.skel video{opacity:0}
+input[type=email],input[type=password]{min-height:46px;width:100%;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;background:var(--panel);color:var(--ink)}
 .vid .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px;text-align:center;font-size:13px;color:var(--muted)}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .cap{font-size:13px;font-weight:600;text-align:center;margin-top:6px}
@@ -121,6 +122,13 @@ nav.nav button[aria-current=page]{color:var(--ink);font-weight:700;border-top-co
 // Paste a Google Form (or any feedback) link here to show it on the result screen.
 var FEEDBACK_URL='';
 var KEY='vertplan.v1';
+// ---- Accounts and plans. Fill these in to turn on real sign-in (see setup steps). Empty = test mode.
+var FIREBASE_CONFIG={apiKey:'AIzaSyD-4kstRNDQYwqt9kwFJe3XT4hx9Dq2a2s',authDomain:'vert-plan-ad84c.firebaseapp.com',projectId:'vert-plan-ad84c',appId:'1:645966183647:web:943782727b76b00647bd6a'};
+var PAY_URL='';            // Stripe Payment Link for the one-time fee
+var TRIAL_DAYS=7;
+var FREE_CHECKS=['bsq','cdl'];
+var FB_VER='10.14.1';
+
 var DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -206,6 +214,93 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 S=load();
 var ui={tab:'plan',week:null,draft:null,editDays:false,notice:'',fc:{ex:null,view:'pick',answers:[],last:null},pain:{status:null,where:[],effort:null},err:'',confirmReset:false,copied:false,method:'Tape measure',rimView:'Front view',touch:120,editReach:false,reachErr:''};
 var youUrl=null,refUrls={};
+/* ---------- account and plan ---------- */
+var ACC={ready:false,mode:FIREBASE_CONFIG.apiKey?'firebase':'test',user:null,trialStart:null,plan:'free',used:{},sim:null,err:''};
+var fbAuth=null,fbDb=null;
+function trialEnd(){return ACC.trialStart?new Date(ACC.trialStart.getTime()+TRIAL_DAYS*864e5):new Date(0);}
+function planName(){if(ACC.mode==='test'&&ACC.sim)return ACC.sim;if(ACC.plan==='paid')return 'paid';return Date.now()<trialEnd().getTime()?'trial':'free';}
+function full(){return planName()!=='free';}
+function daysLeft(){return Math.max(0,Math.ceil((trialEnd().getTime()-Date.now())/864e5));}
+function weekKey(){var d=new Date();d=new Date(d.getFullYear(),d.getMonth(),d.getDate());d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d);}
+function checkLocked(id){if(full())return null;if(FREE_CHECKS.indexOf(id)<0)return 'exercise';if(ACC.used[weekKey()+'|'+id])return 'week';return null;}
+function persistAcc(){
+ if(ACC.mode==='test'){try{localStorage.setItem('vertplan.acc',JSON.stringify({trialStart:ACC.trialStart&&ACC.trialStart.toISOString(),plan:ACC.plan,sim:ACC.sim,used:ACC.used}));}catch(e){}return;}
+ if(fbDb&&ACC.user){fbDb.collection('users').doc(ACC.user.uid).update({used:ACC.used}).catch(function(){});}
+}
+function useCheck(){if(full())return;var id=ui.fc.ex;if(!id)return;var k=weekKey()+'|'+id;if(!ACC.used[k]){ACC.used[k]=1;persistAcc();}}
+function planWeek(){return full()?curWeek():1;}
+function loadScript(src){return new Promise(function(res,rej){var sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=function(){rej(new Error('script '+src));};document.head.appendChild(sc);});}
+function loadFor(uid){KEY='vertplan.v1.u.'+uid;S=load();}
+function bootAuth(){
+ if(ACC.mode==='test'){
+  var a=null;try{a=JSON.parse(localStorage.getItem('vertplan.acc')||'null');}catch(e){}
+  if(a&&a.trialStart){ACC.trialStart=new Date(a.trialStart);ACC.plan=a.plan||'free';ACC.sim=a.sim||null;ACC.used=a.used||{};}
+  else{ACC.trialStart=new Date();persistAcc();}
+  ACC.user={uid:'test',email:'test mode'};ACC.ready=true;return;
+ }
+ KEY='vertplan.v1.u.pending';S=def();
+ var base='https://www.gstatic.com/firebasejs/'+FB_VER+'/';
+ loadScript(base+'firebase-app-compat.js').then(function(){return loadScript(base+'firebase-auth-compat.js');}).then(function(){return loadScript(base+'firebase-firestore-compat.js');}).then(function(){
+  firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbDb=firebase.firestore();
+  fbAuth.onAuthStateChanged(function(u){
+   if(!u){ACC.user=null;KEY='vertplan.v1.u.pending';S=def();ui.draft=newDraft();ACC.ready=true;render();return;}
+   ACC.user={uid:u.uid,email:u.email||'',name:u.displayName||''};
+   var ref=fbDb.collection('users').doc(u.uid);
+   ref.get().then(function(snap){
+    if(snap.exists)return snap;
+    return ref.set({email:u.email||'',plan:'free',trialStart:firebase.firestore.FieldValue.serverTimestamp(),used:{}}).then(function(){return ref.get();});
+   }).then(function(snap){
+    var d=snap.data()||{};
+    ACC.trialStart=(d.trialStart&&d.trialStart.toDate)?d.trialStart.toDate():new Date();
+    ACC.plan=d.plan==='paid'?'paid':'free';ACC.used=d.used||{};ACC.err='';
+    loadFor(u.uid);ui.draft=newDraft();ACC.ready=true;render();
+   }).catch(function(e){ACC.err='Signed in, but your account could not load ('+((e&&e.code)||(e&&e.message)||'error')+'). Check the Firestore rules.';ACC.ready=true;render();});
+  });
+ }).catch(function(){ACC.err='Could not reach the sign-in service. Check your connection and try again.';ACC.ready=true;render();});
+}
+function authMsg(e){
+ var c=(e&&e.code)||'';
+ if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return '';
+ if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-login-credentials')return 'That email or password is not right.';
+ if(c==='auth/email-already-in-use')return 'That email already has an account. Try signing in.';
+ if(c==='auth/weak-password')return 'Use at least 6 characters for your password.';
+ if(c==='auth/invalid-email')return 'That email does not look right.';
+ if(c==='auth/too-many-requests')return 'Too many tries. Wait a few minutes and try again.';
+ if(c==='auth/unauthorized-domain')return 'This site is not allowed to sign in yet. Add it under Authentication, Settings, Authorized domains in Firebase.';
+ if(c==='auth/operation-not-allowed')return 'This sign-in method is not turned on in Firebase yet.';
+ return 'Could not sign in ('+(c||'error')+').';
+}
+function viewAuth(){
+ var a=ui.auth,m=a.mode;
+ return '<div class="stack">'+head('Vert Plan','Sign in to start your plan.')+
+ (ACC.err?'<div class="notice" role="alert">'+esc(ACC.err)+'<div style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="auth_retry">Try again</button></div></div>':'')+
+ '<div class="card stack">'+
+ (m==='reset'?'':'<button type="button" class="btn" data-act="auth_google">Continue with Google</button><div class="small" style="text-align:center">or use email</div>')+
+ '<label class="lbl" for="authEmail" style="margin:0">Email</label><input type="email" id="authEmail" autocomplete="email" value="'+esc(a.email||'')+'">'+
+ (m==='reset'?'':'<label class="lbl" for="authPass" style="margin:0">Password</label><input type="password" id="authPass" autocomplete="'+(m==='up'?'new-password':'current-password')+'">')+
+ (m==='up'?'<label style="display:flex;gap:10px;align-items:flex-start;font-size:14px"><input type="checkbox" id="authAge" style="width:22px;height:22px;flex:none"> I am 15 or older.</label>':'')+
+ (a.err?'<div class="err" role="alert">'+esc(a.err)+'</div>':'')+(a.info?'<div class="small" role="status" style="color:var(--ink)">'+esc(a.info)+'</div>':'')+
+ '<button type="button" class="btn acc" data-act="auth_submit"'+(a.busy?' disabled':'')+'>'+(m==='up'?'Create account':m==='reset'?'Send reset email':'Sign in')+'</button>'+
+ '</div>'+
+ '<div class="right small"><button type="button" class="btn ghost sm" data-act="auth_mode" data-v="'+(m==='up'?'in':'up')+'">'+(m==='up'?'I have an account':'Create an account')+'</button>'+(m==='in'?'<button type="button" class="btn ghost sm" data-act="auth_mode" data-v="reset">Forgot password</button>':'')+'</div>'+
+ '<p class="small">Your first '+TRIAL_DAYS+' days include every feature. Videos stay on your phone.</p></div>';
+}
+function lockSheet(){
+ var l=ui.lock;if(!l)return '';
+ return '<div class="ov" data-act="closelock" data-v="o"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(l.t)+'" style="position:relative"><h2>'+esc(l.t)+'</h2><p style="margin:0 0 12px">'+esc(l.b)+'</p><div class="stack"><button type="button" class="btn acc" data-act="upgrade">Get the full plan (one-time fee)</button><button type="button" class="btn ghost" data-act="closelock" data-v="x">Not now</button></div></div></div>';
+}
+var LOCKS={
+ exercise:{t:'This form check is on the full plan',b:'The free plan includes deadlift and squat form checks, once a week each. Approach jump and the other checks unlock with the full plan.'},
+ week:{t:'You used this week\'s free check',b:'The free plan gets one check a week for the squat and one for the deadlift. It resets on Monday. The full plan has no limit.'},
+ sched:{t:'Plan updates are on the full plan',b:'Your free plan repeats week 1 and keeps your safety rules: pain check-ins and the 2 day game buffer. The full plan re-builds around changes to your practice and game days and adjusts week to week.'}
+};
+function accountCard(){
+ var pn=planName(),label=pn==='paid'?'Full plan':pn==='trial'?'Full access trial, '+daysLeft()+' day'+(daysLeft()===1?'':'s')+' left':'Free plan';
+ var t=ACC.mode==='test'?'<div class="small" style="margin-top:8px"><b>Test mode</b> (sign-in not connected). Pretend to be:</div>'+seg(['Trial','Free','Paid'],{trial:'Trial',free:'Free',paid:'Paid'}[ACC.sim||pn],'sim',3):'';
+ return '<div class="card"><div class="right"><b>Account</b><span class="small">'+esc(ACC.user?ACC.user.email:'')+'</span></div><div style="margin-top:6px">'+label+'</div>'+(pn==='free'?'<div class="small" style="margin-top:4px">Free: plan repeats week 1, 1 squat and 1 deadlift check a week.</div><div style="margin-top:8px"><button type="button" class="btn acc sm" data-act="upgrade">Get the full plan</button></div>':'')+t+
+ (ACC.mode==='firebase'?'<div style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="auth_out">Sign out</button></div>':'')+'</div>';
+}
+
 function angleOf(){var e=EX[ui.fc.ex];return ui.fc.angle||(e&&e.angles?e.angles[0]:'front');}
 function checksOf(id,ang){var e=EX[id];return (e.by&&e.by[ang]&&e.by[ang].check)||e.check;}
 function looksOf(id,ang){var e=EX[id];return (e.by&&e.by[ang]&&e.by[ang].look)||e.look||[];}
@@ -324,8 +419,14 @@ function viewIntake(){
  '<p class="small">Your plan and clips stay on this phone. Clips are never uploaded.</p></div>';
 }
 
+function planBanner(){
+ var pn=planName();
+ if(pn==='trial')return '<div class="card dash small" style="color:var(--ink)"><b>Full access: '+daysLeft()+' day'+(daysLeft()===1?'':'s')+' left.</b> After that your plan stays but stops adjusting, and form checks go to one a week for squat and deadlift.</div>';
+ if(pn==='free')return '<div class="card dash small" style="color:var(--ink)"><b>Free plan.</b> Your plan repeats week 1. Pain check-ins and game buffers stay on. The full plan re-builds the week around your schedule.</div>';
+ return '';
+}
 function viewPlan(){
- var cw=curWeek(),w=ui.week||cw,isC=(w===cw);
+ var cw=planWeek(),w=full()?(ui.week||cw):1,isC=(w===cw);
  var bw=buildWeek(S.sched),today=new Date().getDay();
  var rows=DAYS.map(function(dn,i){
   var k=kindFor(i,w,isC),sd=S.sched[i],cls='row'+(isC&&i===today?' today':'');
@@ -340,8 +441,8 @@ function viewPlan(){
  var lv={Light:2,Moderate:3,High:5}[bw.level];
  var bar='<div class="bar5" aria-hidden="true">'+[0,1,2,3,4].map(function(i){return '<i class="'+(i<lv?'on':'')+'"></i>';}).join('')+'</div>';
  return '<div class="stack">'+(ui.notice?'<div class="notice" role="status">'+ui.notice+'</div>':'')+head('Your plan','4 weeks. Jumps first, strength supports them.')+
- '<div class="tabs" role="group" aria-label="Week">'+[1,2,3,4].map(function(n){return '<button type="button" data-act="week" data-v="'+n+'" aria-pressed="'+(n===w)+'">Week '+n+'</button>';}).join('')+'</div>'+
- (planDone()?'<div class="notice">You finished the 4 weeks. Retest your vertical on the Progress tab.</div>':'')+
+ planBanner()+(full()?'<div class="tabs" role="group" aria-label="Week">'+[1,2,3,4].map(function(n){return '<button type="button" data-act="week" data-v="'+n+'" aria-pressed="'+(n===w)+'">Week '+n+'</button>';}).join('')+'</div>':'')+
+ (full()&&planDone()?'<div class="notice">You finished the 4 weeks. Retest your vertical on the Progress tab.</div>':'')+
  '<div class="stack" style="gap:6px">'+rows+'</div>'+
  '<div class="card"><div class="right" style="font-size:14px"><b>This week\'s load</b><span>'+bw.level+' · school, club, games</span></div>'+bar+'<div class="small" style="margin-top:6px"><b>'+bw.jumps+' jump sessions this week.</b> Each practice counts as 2. Sore after the heavy day? The next day\'s jumps drop to light. Sharp pain stops jumping and heavy lifting.</div>'+(bw.level==='High'?'<div class="small" style="margin-top:6px">Busy week. Hard jump days are swapped for light touch days.</div>':'')+'</div>'+
  '<div class="card dash small" style="color:var(--ink)">'+note+'</div>'+
@@ -354,7 +455,7 @@ function exRow(id,i,doneArr,week){
  return '<div class="exw"><div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+infoBtn(id)+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div></div>';
 }
 function viewToday(){
- var now=new Date(),dow=now.getDay(),key=ymd(now),cw=curWeek(),sd=S.sched[dow],k=kindFor(dow,cw,true),done=S.done[key];
+ var now=new Date(),dow=now.getDay(),key=ymd(now),cw=planWeek(),sd=S.sched[dow],k=kindFor(dow,cw,true),done=S.done[key];
  var due=Object.keys(S.recheck).filter(function(id){return S.recheck[id]&&S.recheck[id]<=key;});
  var h=head(k&&sd!=='game'?SESS[k].title:(sd==='game'?'Game day':sd==='prac'?'Practice day':'Rest day'),k&&sd!=='game'?SESS[k].min+' min · '+(SESS[k].sub?SESS[k].sub+' · ':'')+'week '+cw:'Week '+cw,'Today · '+FULL[dow]);
  var body='';
@@ -377,7 +478,7 @@ function viewForm(){
  var f=ui.fc;
  if(f.view==='pick'||!f.ex){
   return '<div class="stack">'+head('Form check','Film a set, watch it next to a coach demo, then answer a few questions.')+
-  CHECKABLE.map(function(id){var lc=lastCheck(id);return '<button type="button" class="card" style="text-align:left;display:flex;align-items:center;gap:12px;min-height:60px;color:var(--ink);cursor:pointer" data-act="checkform" data-v="'+id+'"><span style="flex:1"><b style="display:block">'+esc(EX[id].name)+'</b><span class="small">'+(lc?(lc.flags.length?lc.flags.length+' flag'+(lc.flags.length>1?'s':'')+' last time':'No flags last time'):'Not checked yet')+'</span></span><span class="tag">Film</span></button>';}).join('')+
+  CHECKABLE.map(function(id){var lc=lastCheck(id),lk=checkLocked(id);return '<button type="button" class="card" style="text-align:left;display:flex;align-items:center;gap:12px;min-height:60px;color:var(--ink);cursor:pointer" data-act="checkform" data-v="'+id+'"><span style="flex:1"><b style="display:block">'+esc(EX[id].name)+'</b><span class="small">'+(lc?(lc.flags.length?lc.flags.length+' flag'+(lc.flags.length>1?'s':'')+' last time':'No flags last time'):'Not checked yet')+(lk==='exercise'?' · full plan only':(!full()&&!lk?' · 1 free check left this week':(lk==='week'?' · used this week':'')))+'</span></span><span class="tag">'+(lk==='exercise'?'Locked':lk==='week'?'Used':'Film')+'</span></button>';}).join('')+
   '<p class="small">Tip: phone at hip height, about 6 feet back, whole body in frame, 3 reps.</p></div>';
  }
  var e=EX[f.ex];
@@ -658,7 +759,7 @@ function startAnalysis(){
   if(!res.ok){f.auto={state:'fail',reason:res.reason};render();return;}
   var af=autoFlags(res,kind);
   f.answers=checksOf(f.ex,ang).map(function(q){var v=af.ver[q.flag];return v==='bad'?q.bad:v==='good'?(q.bad==='Yes'?'No':'Yes'):'Not sure';});
-  f.auto={state:'done',lines:af.lines,reps:af.reps};render();
+  f.auto={state:'done',lines:af.lines,reps:af.reps};useCheck();render();
  }).catch(function(e){f.auto={state:'err',msg:(e&&e.message)||String(e)};render();});
 }
 var poseFrames=null,poseAr=1;
@@ -858,17 +959,19 @@ function viewProgress(){
  '<div class="lbl" style="margin-top:14px">Log a test</div>'+seg(['Tape measure','Rim touch test'],ui.method,'method',2)+'<div style="margin-top:10px">'+(ui.method==='Tape measure'?'<div class="small" style="margin-bottom:8px">Enter how far your touch is above your standing reach.</div><div style="display:flex;gap:8px;align-items:center"><label for="vt" class="small">Inches</label><input id="vt" type="number" inputmode="decimal" step="0.5" min="1" max="60" placeholder="e.g. 22"><button type="button" class="btn sm" data-act="logtest">Log a test</button></div>':viewRim())+'</div></div>'+
  viewLifts()+'<div class="card accent"><div class="lbl" style="color:var(--accent-ink)">Form checks</div>'+(checks?'<div class="stack" style="gap:6px">'+checks+'</div>':'<div class="small" style="color:var(--ink)">None yet. Tap Check form on a workout to film your first set.</div>')+'</div>'+
  '<div class="card"><div class="lbl">Body check-ins, last 7 days</div><div class="week7">'+days.join('')+'</div><div class="small" style="margin-top:8px">Aches show here so you can spot a pattern.</div></div>'+
- sendCard()+
+ sendCard()+accountCard()+
  '<button type="button" class="btn ghost" data-act="reset">'+(ui.confirmReset?'Tap again to erase everything':'Start over')+'</button></div>';
 }
 
 /* ---------- render ---------- */
 function render(){
  var app=document.getElementById('app'),nav=document.getElementById('nav');
- if(!S.profile){app.innerHTML=viewIntake();nav.parentNode.hidden=true;return;}
+ if(!ACC.ready){app.innerHTML='<div class="card">Loading...</div>';nav.parentNode.hidden=true;return;}
+ if(ACC.mode==='firebase'&&!ACC.user){app.innerHTML=viewAuth();nav.parentNode.hidden=true;return;}
+ if(!S.profile){app.innerHTML=viewIntake()+(ACC.err?'<div class="notice" style="margin-top:12px">'+esc(ACC.err)+'</div>':'');nav.parentNode.hidden=true;return;}
  nav.parentNode.hidden=false;
  var v={plan:viewPlan,today:viewToday,form:viewForm,progress:viewProgress,checkin:viewCheckin}[ui.tab]();
- app.innerHTML=v+infoPanel(ui.info);
+ app.innerHTML=v+infoPanel(ui.info)+lockSheet();
  if(ui.info&&INFO[ui.info]){var ic=document.getElementById('infoClose');if(ic)ic.focus();}
  var tabs=[['plan','Plan'],['today','Today'],['form','Form check'],['progress','Progress']];
  nav.innerHTML=tabs.map(function(t){return '<button type="button" data-act="tab" data-v="'+t[0]+'" '+((ui.tab===t[0]||(ui.tab==='checkin'&&t[0]==='today'))?'aria-current="page"':'')+'>'+t[1]+'</button>';}).join('');
@@ -894,7 +997,7 @@ function wireCompare(){
 
 /* ---------- events ---------- */
 function toggle(arr,v,excl){var i=arr.indexOf(v);if(v===excl)return [v];arr=arr.filter(function(x){return x!==excl;});if(i>-1&&v!==excl)arr=arr.filter(function(x){return x!==v;});else arr.push(v);return arr.length?arr:(excl?[excl]:arr);}
-document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&ui.info){ui.info=null;render();}});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&(ui.info||ui.lock)){ui.info=null;ui.lock=null;render();}if(ev.key==='Enter'&&ev.target&&(ev.target.id==='authPass'||ev.target.id==='authEmail')){var sb=document.querySelector('[data-act=auth_submit]');if(sb)sb.click();}});
 document.addEventListener('click',function(ev){
  if(ev.target.closest&&ev.target.closest('#rimsvg')){setTouchFromY(ev.clientY);return;}
  var b=ev.target.closest('[data-act]');if(!b||b.tagName==='INPUT')return;
@@ -927,17 +1030,35 @@ document.addEventListener('click',function(ev){
   save();ui.tab='plan';ui.notice=d.sore.indexOf('Nothing')<0?'You listed something sore, so your first week is low-impact: no jumping or heavy lifting.':'';render();window.scrollTo(0,0);return;
  }
  if(a==='week'){ui.week=Number(v);render();return;}
- if(a==='editdays'){ui.editDays=true;render();return;}
+ if(a==='editdays'){if(!full()){ui.lock=LOCKS.sched;render();return;}ui.editDays=true;render();return;}
  if(a==='savedays'){ui.editDays=false;save();ui.notice='Plan updated for your new days.';render();return;}
- if(a==='finish'){saveAllLifts();var key=ymd(new Date()),k=kindFor(new Date().getDay(),curWeek(),true),list=(ui.todayEx&&ui.todayEx.key===key)?ui.todayEx.list:[];S.done[key]={kind:k,ex:list};save();ui.pain={status:null,where:[],effort:null};go('checkin');return;}
+ if(a==='finish'){saveAllLifts();var key=ymd(new Date()),k=kindFor(new Date().getDay(),planWeek(),true),list=(ui.todayEx&&ui.todayEx.key===key)?ui.todayEx.list:[];S.done[key]={kind:k,ex:list};save();ui.pain={status:null,where:[],effort:null};go('checkin');return;}
  if(a==='gocheckin'){ui.pain={status:null,where:[],effort:null};go('checkin');return;}
- if(a==='checkform'){ui.fc={ex:v,view:'record',answers:[],last:null,angle:(EX[v].angles&&EX[v].angles[0])||'front',mode:'video'};poseFrames=null;ui.tab='form';render();window.scrollTo(0,0);return;}
+ if(a==='checkform'){var lkx=checkLocked(v);if(lkx){ui.lock=LOCKS[lkx];render();return;}ui.fc={ex:v,view:'record',answers:[],last:null,angle:(EX[v].angles&&EX[v].angles[0])||'front',mode:'video'};poseFrames=null;ui.tab='form';render();window.scrollTo(0,0);return;}
  if(a==='analyze'){startAnalysis();return;}
+ if(a==='closelock'){if(v==='o'&&ev.target!==b)return;ui.lock=null;render();return;}
+ if(a==='upgrade'){ui.lock=null;if(PAY_URL){var u=PAY_URL+(PAY_URL.indexOf('?')>-1?'&':'?')+'client_reference_id='+encodeURIComponent(ACC.user?ACC.user.uid:'')+'&prefilled_email='+encodeURIComponent(ACC.user&&ACC.user.email||'');window.open(u,'_blank','noopener');render();}else{ui.lock={t:'Payments are not set up yet',b:'The full plan will be a one-time fee. The payment link is not connected in this version.'};render();}return;}
+ if(a==='sim'){ACC.sim={Trial:'trial',Free:'free',Paid:'paid'}[v]||null;persistAcc();ui.week=null;render();return;}
+ if(a==='auth_mode'){ui.auth.mode=v;ui.auth.err='';ui.auth.info='';var em=document.getElementById('authEmail');if(em)ui.auth.email=em.value;render();return;}
+ if(a==='auth_google'){ui.auth.err='';if(!fbAuth)return;var prov=new firebase.auth.GoogleAuthProvider();fbAuth.signInWithPopup(prov).catch(function(e){ui.auth.err=authMsg(e);render();});return;}
+ if(a==='auth_retry'){location.reload();return;}
+ if(a==='auth_out'){if(fbAuth)fbAuth.signOut();return;}
+ if(a==='auth_submit'){
+  var au=ui.auth,eEl=document.getElementById('authEmail'),pEl=document.getElementById('authPass');
+  var email=eEl?eEl.value.trim():'',pass=pEl?pEl.value:'';au.email=email;au.err='';au.info='';
+  if(!fbAuth){au.err='Sign-in is not connected.';render();return;}
+  if(!email){au.err='Enter your email.';render();return;}
+  if(au.mode==='reset'){fbAuth.sendPasswordResetEmail(email).then(function(){au.info='If that email has an account, a reset link is on its way.';render();},function(e){au.err=authMsg(e);render();});return;}
+  if(!pass){au.err='Enter your password.';render();return;}
+  if(au.mode==='up'){var ag=document.getElementById('authAge');if(!ag||!ag.checked){au.err='Please confirm you are 15 or older.';render();return;}
+   fbAuth.createUserWithEmailAndPassword(email,pass).catch(function(e){au.err=authMsg(e);render();});return;}
+  fbAuth.signInWithEmailAndPassword(email,pass).catch(function(e){au.err=authMsg(e);render();});return;
+ }
  if(a==='fcangle'){f.angle=v.toLowerCase();f.auto=null;poseFrames=null;render();return;}
  if(a==='fcmode'){f.mode={'Video':'video','Video + points':'both','Points only':'skel'}[v]||'video';render();return;}
  if(a==='fcback'){poseFrames=null;ui.fc.view=ui.fc.view==='compare'?'record':'pick';render();return;}
  if(a.indexOf('ans')===0&&a!=='ans'){var qi=Number(a.slice(3));f.answers[qi]=v;document.getElementById('qs').innerHTML=qsHtml(checksOf(f.ex,angleOf()),f.answers);var all=f.answers.length===checksOf(f.ex,angleOf()).length&&f.answers.every(Boolean);var sb=document.querySelector('[data-act=savecheck]');if(sb)sb.disabled=!all;return;}
- if(a==='savecheck'){
+ if(a==='savecheck'){useCheck();
   var qs=checksOf(f.ex,angleOf()),flags=[],good=[],seen={};
   qs.forEach(function(q,j){if(f.answers[j]===q.bad){if(!seen[q.flag]){seen[q.flag]=1;flags.push({flag:q.flag,label:q.q.replace(/^Did /,'').replace(/\?$/,'').replace(/^your /,'Your '),short:q.flag});}}else if(f.answers[j]&&f.answers[j]!=='Not sure')good.push(q.q.replace(/^Did /,'').replace(/^Was /,'').replace(/\?$/,''));});
   var fl2=flags.map(function(x){var q=qs.filter(function(z){return z.flag===x.flag;})[0];return {flag:x.flag,short:x.flag,label:{knee:'Knees caved',heel:'Heels came up',chest:'Chest dropped',loud:'Landing was loud',balance:'Landing was wobbly',uneven:'Feet landed unevenly',shift:'One side lifted first or hips twisted',level:'Shoulders were uneven',depth:'Did not reach the box'}[x.flag]||q.q};});
@@ -985,6 +1106,8 @@ document.addEventListener('pointerup',function(){dragging=false;});
 document.addEventListener('pointercancel',function(){dragging=false;});
 function newDraft(){return {sport:'Volleyball',age:'',consent:false,exp:'Beginner',rf:'',ri:'',teams:['None'],sore:['Nothing'],sched:['off','off','off','off','off','off','off']};}
 ui.draft=newDraft();
+ui.auth={mode:'in',err:'',info:'',busy:false,email:''};
+bootAuth();
 render();
 })();
 </script>
