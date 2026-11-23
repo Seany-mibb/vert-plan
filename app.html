@@ -476,7 +476,7 @@ function viewPlan(){
   var k=kindFor(i,w,isC),sd=S.sched[i],cls='row'+(isC&&i===today?' today':'');
   if(sd==='game')return '<div class="'+cls+' game"><div class="d">'+dn+'</div><div class="t"><b>Game</b></div></div>';
   if(k){var m=SESS[k],ok=(ui.openDay===w+':'+i),dd='';
-   if(ok){dd='<div class="dd"><ul>'+sessEx(k,i,w).filter(function(x){return x!=='prep';}).map(function(x){return '<li><b>'+esc(EX[x].name)+'</b><span>'+esc(exText(x,w))+'</span></li>';}).join('')+'</ul><div class="small">Plus a 7 minute warm-up. Log it on the Today tab that day.</div></div>';}
+   if(ok){dd='<div class="dd"><ul>'+sessEx(k,i,w).filter(function(x){return x!=='prep';}).map(function(x){return '<li><b>'+esc(EX[x].name)+'</b><span>'+esc(exText(x,w))+'</span></li>';}).join('')+'</ul><div class="small">Plus a 7 minute warm-up.</div></div>';}
    return '<button type="button" class="'+cls+' tap'+(ok?' open':'')+'" data-act="openday" data-i="'+i+'" aria-expanded="'+ok+'"><span class="d">'+dn+'</span><span class="t"><b>'+esc(m.title)+'</b><span>'+m.min+' min'+(sd==='prac'?' · plus practice':'')+(m.sub?' · '+esc(m.sub):'')+(isC&&i===today?' · today':'')+'</span></span><span class="tag">'+m.tag+' '+(ok?'▴':'▾')+'</span></button>'+dd;}
   if(sd==='prac')return '<div class="'+cls+' prac"><div class="d">'+dn+'</div><div class="t"><b>Practice</b><span>From your schedule</span></div></div>';
   return '<div class="'+cls+' mute"><div class="d">'+dn+'</div><div class="t"><b>Rest</b></div></div>';
@@ -490,7 +490,7 @@ function viewPlan(){
  planBanner()+(full()?'<div class="tabs" role="group" aria-label="Week">'+[1,2,3,4].map(function(n){return '<button type="button" data-act="week" data-v="'+n+'" aria-pressed="'+(n===w)+'">Week '+n+'</button>';}).join('')+'</div>':'')+
  (full()&&planDone()?'<div class="notice">You finished the 4 weeks. Retest your vertical on the Progress tab.</div>':'')+
  '<div class="stack" style="gap:6px">'+rows+'</div>'+
- '<div class="card"><div class="right" style="font-size:14px"><b>This week\'s load</b><span>'+bw.level+' · school, club, games</span></div>'+bar+'<div class="small" style="margin-top:6px">'+(w<=2?'<b>Strength weeks: no jump training.</b> Practices and games still count toward your load.':'<b>'+bw.jumps+' jump sessions this week.</b> Each practice counts as 2.')+' Sore after the heavy day? The next day\'s jumps drop to light. Sharp pain stops jumping and heavy lifting.</div>'+(bw.level==='High'?'<div class="small" style="margin-top:6px">Busy week. Hard jump days are swapped for light touch days.</div>':'')+'</div>'+
+ '<div class="card"><div class="right"><b style="font-size:19px">This week\'s load</b><b style="font-size:19px;color:var(--brand)">'+bw.level+'</b></div>'+bar+'<div style="margin-top:8px;font-size:17px;font-weight:600">'+(w<=2?'Lifting only. No jumping.':bw.jumps+' jump sessions')+'</div>'+(bw.level==='High'?'<div class="small" style="margin-top:6px;font-size:15px">Busy week. Hard jumps swapped for light ones.</div>':'')+'</div>'+
  '<div class="card dash small" style="color:var(--ink)">'+note+'</div>'+
  (ui.editDays?'<div class="card">'+dayGrid(S.sched)+'<div style="margin-top:10px"><button type="button" class="btn" data-act="savedays">Save days</button></div></div>':'<button type="button" class="btn ghost" data-act="editdays">Edit game and practice days</button>')+
  '</div>';
@@ -620,7 +620,7 @@ function viewForm(){
   '<div><div class="vid you'+(modeOf()==='skel'?' skel':'')+'"><video id="vYou" playsinline muted></video><canvas id="ovl" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas></div><div class="cap">You <span>(this set)</span></div></div></div>'+
   seg(['Video','Video + points','Points only'],{video:'Video',both:'Video + points',skel:'Points only'}[modeOf()],'fcmode',3)+
   '<div style="display:flex;align-items:center;gap:10px"><button type="button" class="btn sm" id="pp" style="width:96px">Play</button><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub both videos"><button type="button" class="btn ghost sm" id="spd" aria-label="Playback speed">1x</button></div>'+
-  '<div class="card"><div class="lbl" style="font-weight:700">Compare these points</div><ul style="margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:4px">'+looksOf(f.ex,angleOf()).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="small" style="margin-top:8px">Pause both videos at the same moment, then look at each point.</div></div>'+
+  '<div class="card"><div class="lbl" style="font-weight:700">Compare these points</div><ul style="margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:17px">'+looksOf(f.ex,angleOf()).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
   autoCard()+'<div class="card accent" id="qs">'+qsHtml(qs,ans)+'</div>'+
   '<button type="button" class="btn" data-act="savecheck" '+(all?'':'disabled')+'>Save my check</button></div>';
  }
