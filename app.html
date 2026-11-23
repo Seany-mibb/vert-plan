@@ -3,15 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <style>[hidden]{display:none!important}</style>
 <title>Vert Plan</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: one phone-width column, bottom tab bar. Court-blue ink, signal orange reserved for form check. */
-:root{--bg:#F7F3EC;--panel:#FFFFFF;--ink:#292524;--muted:#78716C;--line:#E4DED5;--fill:#EFE9DF;--btn:#1B4332;--btn-ink:#FFFFFF;--brand:#1B4332;--tint:#EEF3EF;--tint-line:#8BB09C;--accent:#C2410C;--accent-tint:#FDEDE4;--accent-ink:#8F3008;--focus:#1B4332;
+:root{color-scheme:light;--bg:#F7F3EC;--panel:#FFFFFF;--ink:#292524;--muted:#78716C;--line:#D6D3D1;--fill:#F1EBE1;--btn:#1B4332;--btn-ink:#FFFFFF;--brand:#1B4332;--tint:#EDF3EE;--tint-line:#74A892;--faint:#A8A29E;--accent:#1B4332;--accent-tint:#EDF3EE;--accent-ink:#1B4332;--focus:#1B4332;
 --f-display:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;--f-body:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1C1917;--panel:#292524;--ink:#F7F3EC;--muted:#A8A29E;--line:#3F3A36;--fill:#332E2A;--btn:#3E8A66;--btn-ink:#FFFFFF;--brand:#3E8A66;--tint:#22302A;--tint-line:#3E8A66;--accent:#FF8A57;--accent-tint:#2D1E17;--accent-ink:#FFB08A;--focus:#8BD0AE;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#1C1917;--panel:#292524;--ink:#F7F3EC;--muted:#A8A29E;--line:#3F3A36;--fill:#332E2A;--btn:#3E8A66;--btn-ink:#FFFFFF;--brand:#3E8A66;--tint:#22302A;--tint-line:#3E8A66;--accent:#FF8A57;--accent-tint:#2D1E17;--accent-ink:#FFB08A;--focus:#8BD0AE;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
 #app{max-width:480px;margin:0 auto;padding:20px 0 96px}
@@ -99,7 +98,7 @@ nav.nav button{min-height:62px;border:0;background:none;color:var(--muted);font-
 nav.nav svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 nav.nav button[aria-current=page]{color:var(--ink);font-weight:700;border-top-color:var(--ink)}
 .notice{border:1.5px solid var(--brand);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--panel)}
-.err{color:var(--accent-ink);font-size:14px;font-weight:600}
+.err{color:#B91C1C;font-size:14px;font-weight:600}
 .small{font-size:13px;color:var(--muted);line-height:1.45}
 .cue{font-size:14px;line-height:1.45;margin-top:6px}
 .week7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
