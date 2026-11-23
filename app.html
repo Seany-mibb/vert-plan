@@ -498,7 +498,7 @@ function viewPlan(){
 
 function exRow(id,i,doneArr,week){
  var e=EX[id],chk=doneArr.indexOf(id)>-1;
- return '<div class="exw"><div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+infoBtn(id)+(e.check?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div></div>';
+ return '<div class="exw"><div class="ex"><input type="checkbox" id="ex'+i+'" data-act="toggleex" data-v="'+id+'" '+(chk?'checked':'')+' aria-label="Done: '+esc(e.name)+'"><div class="t"><b>'+esc(e.name)+'</b><span>'+esc(exText(id,week))+' · <a class="demo" href="https://www.youtube.com/results?search_query='+encodeURIComponent(e.q)+'" target="_blank" rel="noopener">Watch a demo</a></span>'+liftBox(id)+'</div>'+infoBtn(id)+((e.check&&LOGGABLE.indexOf(id)<0)?'<button type="button" class="btn accl sm" data-act="checkform" data-v="'+id+'">Check form</button>':'')+'</div></div>';
 }
 function viewToday(){
  var now=new Date(),dow=now.getDay(),key=ymd(now),cw=planWeek(),sd=S.sched[dow],k=kindFor(dow,cw,true),done=S.done[key];
@@ -511,7 +511,7 @@ function viewToday(){
  }else{
   var arr=(done&&done.ex)||(ui.todayEx&&ui.todayEx.key===key?ui.todayEx.list:[]);
   body=(done?'<div class="notice" role="status">Workout finished today. Nice work.</div>':'')+
-  (!done&&sessEx(k,dow,cw).some(function(x){return EX[x].check;})?'<div class="card accent" style="display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:13px;line-height:1.35"><b style="font-size:14px;color:var(--accent-ink)">Film one set</b><br>Compare it to a coach demo and answer 3 quick questions.</div><button type="button" class="btn acc sm" data-act="checkform" data-v="'+(SESS[k].ex.filter(function(x){return EX[x].check;})[0]||'bsq')+'">Record</button></div>':'')+
+  (!done&&sessEx(k,dow,cw).some(function(x){return EX[x].check&&LOGGABLE.indexOf(x)<0;})?'<div class="card accent" style="display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:13px;line-height:1.35"><b style="font-size:14px;color:var(--accent-ink)">Film one set</b><br>Compare it to a coach demo and answer 3 quick questions.</div><button type="button" class="btn acc sm" data-act="checkform" data-v="'+(sessEx(k,dow,cw).filter(function(x){return EX[x].check&&LOGGABLE.indexOf(x)<0;})[0]||'bsq')+'">Record</button></div>':'')+
   '<div class="stack" style="gap:8px">'+sessEx(k,dow,cw).map(function(id,i){return exRow(id,i,arr,cw);}).join('')+'</div>'+
   (done?'<button type="button" class="btn ghost" data-act="gocheckin">Log how you feel</button>':'<button type="button" class="btn" data-act="finish">Finish workout</button>');
  }
@@ -566,7 +566,7 @@ function viewWk(){
   var rows=k.sets.map(function(s2,i){
    var lbl='<div class="setlbl">SET '+(i+1)+'</div>';
    if(s2.done)return lbl+'<div class="setr done"><span>'+k.w+' lb</span><span>'+s2.reps+' / '+k.t+'</span></div>';
-   if(i===cur)return lbl+'<div class="setc"><div style="font-weight:700;font-size:19px">'+k.w+' lb</div><div style="display:flex;align-items:center;justify-content:center;gap:20px;margin:12px 0"><button type="button" class="step" data-act="wkrep" data-v="-1" aria-label="One less rep"'+(s2.reps<=0?' disabled':'')+'>−</button><div class="big">'+s2.reps+'<small>/ '+k.t+'</small></div><button type="button" class="step" data-act="wkrep" data-v="1" aria-label="One more rep"'+(s2.reps>=k.t?' disabled':'')+'>+</button></div><div class="small cen" style="margin-bottom:12px">Stop before failure. If the next 1 to 2 reps might fail, don\'t do them.</div><button type="button" class="btn" data-act="wkdone">Done</button></div>';
+   if(i===cur)return lbl+'<div class="setc"><div style="font-weight:700;font-size:19px">'+k.w+' lb</div><div style="display:flex;align-items:center;justify-content:center;gap:20px;margin:12px 0"><button type="button" class="step" data-act="wkrep" data-v="-1" aria-label="One less rep"'+(s2.reps<=0?' disabled':'')+'>−</button><div class="big">'+s2.reps+'<small>/ '+k.t+'</small></div><button type="button" class="step" data-act="wkrep" data-v="1" aria-label="One more rep"'+(s2.reps>=k.t?' disabled':'')+'>+</button></div><div class="small cen" style="margin-bottom:12px">Stop before failure. If the next 1 to 2 reps might fail, don\'t do them.</div>'+(e.check?'<button type="button" class="btn accl" style="margin-bottom:10px" data-act="wkcheck">Check form</button>':'')+'<button type="button" class="btn" data-act="wkdone">Done</button></div>';
    return lbl+'<div class="setr"><span>'+k.w+' lb</span><span>'+k.t+' reps</span></div>';
   }).join('');
   var all=cur<0;
@@ -1088,9 +1088,10 @@ function render(){
  if(!ACC.ready){app.innerHTML='<div class="card">Loading...</div>';nav.parentNode.hidden=true;return;}
  if(ACC.mode==='firebase'&&!ACC.user){app.innerHTML=viewAuth();nav.parentNode.hidden=true;return;}
  if(!S.profile){app.innerHTML=viewIntake()+(ACC.err?'<div class="notice" style="margin-top:12px">'+esc(ACC.err)+'</div>':'');nav.parentNode.hidden=true;return;}
- if(ui.wk){nav.parentNode.hidden=true;app.innerHTML=viewWk();return;}
+ if(ui.wk&&!ui.wkHidden){nav.parentNode.hidden=true;app.innerHTML=viewWk()+lockSheet();return;}
  nav.parentNode.hidden=false;
  var v={plan:viewPlan,today:viewToday,form:viewForm,progress:viewProgress,checkin:viewCheckin}[ui.tab]();
+ if(ui.wk&&ui.tab==='form')v='<button type="button" class="btn ghost sm" data-act="wkresume" style="margin-bottom:12px">‹ Back to workout</button>'+v;
  app.innerHTML=v+infoPanel(ui.info)+lockSheet();
  if(ui.info&&INFO[ui.info]){var ic=document.getElementById('infoClose');if(ic)ic.focus();}
  var tabs=[['today','Today'],['form','Form check'],['progress','Progress'],['plan','Plan']];
@@ -1098,7 +1099,7 @@ function render(){
  nav.innerHTML=tabs.map(function(t){return '<button type="button" data-act="tab" data-v="'+t[0]+'" '+((ui.tab===t[0]||(ui.tab==='checkin'&&t[0]==='today'))?'aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+NAVI[t[0]]+'</svg>'+t[1]+'</button>';}).join('');
  if(ui.tab==='form'&&ui.fc.view==='compare')wireCompare();
 }
-function go(tab){ui.tab=tab;ui.notice=ui.tab==='plan'||ui.tab==='today'?ui.notice:'';ui.confirmReset=false;render();window.scrollTo(0,0);}
+function go(tab){if(ui.wk&&ui.wkHidden&&tab==='today')ui.wkHidden=false;ui.tab=tab;ui.notice=ui.tab==='plan'||ui.tab==='today'?ui.notice:'';ui.confirmReset=false;render();window.scrollTo(0,0);}
 
 function wireCompare(){
  var vy=document.getElementById('vYou'),vr=document.getElementById('vRef');if(!vy)return;
@@ -1150,9 +1151,12 @@ document.addEventListener('click',function(ev){
   if(d.sore.indexOf('Nothing')<0)S.hold.plyo=ymd(addDays(new Date(),6));
   save();ui.tab='plan';ui.notice=d.sore.indexOf('Nothing')<0?'You listed something sore, so your first week is low-impact: no jumping or heavy lifting.':'';render();window.scrollTo(0,0);return;
  }
+ if(a==='wkresume'){ui.wkHidden=false;ui.tab='today';render();window.scrollTo(0,0);return;}
+ if(a==='wkcheck'&&ui.wk){var idc=ui.wk.id,lkc=checkLocked(idc);if(lkc){ui.lock=LOCKS[lkc];render();return;}
+  ui.wkHidden=true;ui.fc={ex:idc,view:'record',answers:[],last:null,angle:(EX[idc].angles&&EX[idc].angles[0])||'front',mode:'video'};poseFrames=null;ui.tab='form';render();window.scrollTo(0,0);return;}
  if(a==='wkstart'){var sc=WSET[v],sg=wSuggest(v);ui.wk={id:v,step:'weight',w:sg.w,n:sc[0],t:sc[1],sets:[],start:Date.now(),restEnd:0,next:null,note:''};render();window.scrollTo(0,0);return;}
  if(ui.wk){var wk=ui.wk;
-  if(a==='wkback'){if(wk.step==='sets'){wk.step='weight';wk.restEnd=0;}else if(wk.step==='result'){wk.step='sets';}else{ui.wk=null;}render();return;}
+  if(a==='wkback'){if(wk.step==='sets'){wk.step='weight';wk.restEnd=0;}else if(wk.step==='result'){wk.step='sets';}else{ui.wk=null;ui.wkHidden=false;}render();return;}
   if(a==='wkw'){wk.w=Math.max(5,Math.min(999,wk.w+Number(v)));render();return;}
   if(a==='wkgo'){wk.sets=[];for(var q=0;q<wk.n;q++)wk.sets.push({reps:wk.t,done:false});wk.step='sets';wk.start=Date.now();render();window.scrollTo(0,0);return;}
   if(a==='wkrep'){var c0=-1;wk.sets.forEach(function(x,ii){if(c0<0&&!x.done)c0=ii;});if(c0>-1){wk.sets[c0].reps=Math.max(0,Math.min(wk.t,wk.sets[c0].reps+Number(v)));}render();return;}
@@ -1166,7 +1170,7 @@ document.addEventListener('click',function(ev){
    saveLift(wk.id,wk.w);var lst=(S.lifts[wk.id]||[]);var en=lst[lst.length-1];if(en){en.sets=reps;en.note=note;en.target=wk.t;}
    S.nextW=S.nextW||{};S.nextW[wk.id]=wk.next;save();
    var kk2=ymd(new Date());if(!ui.todayEx||ui.todayEx.key!==kk2)ui.todayEx={key:kk2,list:[]};if(ui.todayEx.list.indexOf(wk.id)<0)ui.todayEx.list.push(wk.id);
-   ui.wk=null;ui.tab='today';render();window.scrollTo(0,0);return;}
+   ui.wk=null;ui.wkHidden=false;ui.tab='today';render();window.scrollTo(0,0);return;}
  }
  if(a==='openday'){var kk=full()?(ui.week||planWeek()):1,key2=kk+':'+i;ui.openDay=(ui.openDay===key2?null:key2);render();return;}
  if(a==='week'){ui.week=Number(v);render();return;}
@@ -1196,7 +1200,7 @@ document.addEventListener('click',function(ev){
  }
  if(a==='fcangle'){f.angle=v.toLowerCase();f.auto=null;poseFrames=null;render();return;}
  if(a==='fcmode'){f.mode={'Video':'video','Video + points':'both','Points only':'skel'}[v]||'video';render();return;}
- if(a==='fcback'){poseFrames=null;ui.fc.view=ui.fc.view==='compare'?'record':'pick';render();return;}
+ if(a==='fcback'){poseFrames=null;if(ui.wk&&ui.fc.view==='record'){ui.fc={ex:null,view:'pick',answers:[],last:null};ui.wkHidden=false;ui.tab='today';render();window.scrollTo(0,0);return;}ui.fc.view=ui.fc.view==='compare'?'record':'pick';render();return;}
  if(a.indexOf('ans')===0&&a!=='ans'){var qi=Number(a.slice(3));f.answers[qi]=v;document.getElementById('qs').innerHTML=qsHtml(checksOf(f.ex,angleOf()),f.answers);var all=f.answers.length===checksOf(f.ex,angleOf()).length&&f.answers.every(Boolean);var sb=document.querySelector('[data-act=savecheck]');if(sb)sb.disabled=!all;return;}
  if(a==='savecheck'){useCheck();
   var qs=checksOf(f.ex,angleOf()),flags=[],good=[],seen={};
@@ -1209,7 +1213,7 @@ document.addEventListener('click',function(ev){
  if(a==='recheck'){if(S.recheck[f.ex])delete S.recheck[f.ex];else S.recheck[f.ex]=ymd(addDays(new Date(),3));save();render();return;}
  if(a==='auto'){S.poll.auto=v;save();render();return;}
  if(a==='waitlist'){S.poll.waitlist=!S.poll.waitlist;save();render();return;}
- if(a==='fcdone'){ui.fc={ex:null,view:'pick',answers:[],last:null};go('progress');return;}
+ if(a==='fcdone'){ui.fc={ex:null,view:'pick',answers:[],last:null};if(ui.wk){ui.wkHidden=false;ui.tab='today';render();window.scrollTo(0,0);return;}go('progress');return;}
  if(a==='copy'){var txt=summary();var done=function(){ui.copied=true;render();setTimeout(function(){ui.copied=false;render();},1800);};try{navigator.clipboard.writeText(txt).then(done,function(){window.prompt&&0;fallbackCopy(txt);done();});}catch(e){fallbackCopy(txt);done();}return;}
  if(a==='status'){ui.pain.status=v;render();return;}
  if(a==='where'){ui.pain.where=toggle(ui.pain.where,v,null);render();return;}
