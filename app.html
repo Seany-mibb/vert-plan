@@ -620,6 +620,7 @@ function viewForm(){
   '<div><div class="vid you'+(modeOf()==='skel'?' skel':'')+'"><video id="vYou" playsinline muted></video><canvas id="ovl" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas></div><div class="cap">You <span>(this set)</span></div></div></div>'+
   seg(['Video','Video + points','Points only'],{video:'Video',both:'Video + points',skel:'Points only'}[modeOf()],'fcmode',3)+
   '<div style="display:flex;align-items:center;gap:10px"><button type="button" class="btn sm" id="pp" style="width:96px">Play</button><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub both videos"><button type="button" class="btn ghost sm" id="spd" aria-label="Playback speed">1x</button></div>'+
+  '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn ghost sm" id="syA" style="flex:1.3;font-size:16px">Sync demo</button><button type="button" class="btn ghost sm" id="syM" style="flex:1;font-size:16px" aria-label="Move demo earlier">◀ Demo</button><button type="button" class="btn ghost sm" id="syP" style="flex:1;font-size:16px" aria-label="Move demo later">Demo ▶</button></div>'+
   '<div class="card"><div class="lbl" style="font-weight:700">Compare these points</div><ul style="margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:17px">'+looksOf(f.ex,angleOf()).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
   autoCard()+'<div class="card accent" id="qs">'+qsHtml(qs,ans)+'</div>'+
   '<button type="button" class="btn" data-act="savecheck" '+(all?'':'disabled')+'>Save my check</button></div>';
@@ -1101,20 +1102,70 @@ function render(){
 }
 function go(tab){if(ui.wk&&ui.wkHidden&&tab==='today')ui.wkHidden=false;ui.tab=tab;ui.notice=ui.tab==='plan'||ui.tab==='today'?ui.notice:'';ui.confirmReset=false;render();window.scrollTo(0,0);}
 
+function firstMove(fr){
+ if(!fr||!fr.length)return null;
+ var ys=[];fr.forEach(function(f){if(!f.lm)return;var h1=f.lm[23],h2=f.lm[24];if(!h1||!h2||h1[2]<0.3||h2[2]<0.3)return;ys.push({t:f.t,y:(h1[1]+h2[1])/2});});
+ if(ys.length<5)return null;
+ var v=ys.map(function(p){return p.y;}).sort(function(x,y){return x-y;});
+ var top=v[Math.floor(v.length*0.1)],bot=v[Math.floor(v.length*0.9)],rg=bot-top;if(rg<0.04)return null;
+ var i=0;while(i<ys.length&&ys[i].y<top+rg*0.3)i++;
+ if(i>=ys.length)return null;
+ while(i>0&&ys[i-1].y>top+rg*0.08)i--;
+ return ys[i].t;
+}
 function wireCompare(){
  var vy=document.getElementById('vYou'),vr=document.getElementById('vRef');if(!vy)return;
  if(youUrl)vy.src=youUrl;
  var ru=refUrls[ui.fc.ex]||REFS[refKey(ui.fc.ex,angleOf())];if(ru){vr.src=ru;document.getElementById('refPh').hidden=true;}
  var pp=document.getElementById('pp'),sc=document.getElementById('scrub'),sp=document.getElementById('spd');
- var vids=function(){return ru?[vy,vr]:[vy];};
- pp.onclick=function(){var playing=!vy.paused;vids().forEach(function(v){if(playing)v.pause();else v.play().catch(function(){});});pp.textContent=playing?'Play':'Pause';};
+ var f=ui.fc,vids=function(){return ru?[vy,vr]:[vy];};
+ // sync model: your time sy.y lines up with demo time sy.r
+ var sk=SKEL[refKey(f.ex,angleOf())];
+ var autoSync=function(){
+  var ty=firstMove(poseFrames),tr=sk?firstMove(unpackSkel(sk)):null;
+  if(ty==null||tr==null)return false;
+  f.sync={y:ty,r:tr};return true;
+ };
+ if(!f.sync&&poseFrames&&ru&&!refUrls[f.ex]){if(autoSync())f.syncSeek=true;}
+ var sy=function(){return f.sync||{y:0,r:0};};
+ var refT=function(yt){return yt-sy().y+sy().r;};
+ var seekBoth=function(yt){
+  if(vy.readyState>0||yt===0)vy.currentTime=Math.max(0,yt);
+  if(ru&&(vr.readyState>0||true)){var m=refT(yt);vr.currentTime=Math.max(0,Math.min(vr.duration||m,m));}
+ };
+ var follow=function(){
+  if(!ru||vy.paused||vy.ended)return;
+  var m=refT(vy.currentTime);
+  if(m<0){if(!vr.paused)vr.pause();if(vr.currentTime>0.05)vr.currentTime=0;}
+  else if(vr.duration&&m>=vr.duration){vr.pause();}
+  else{if(vr.paused)vr.play().catch(function(){});if(Math.abs(vr.currentTime-m)>0.25)vr.currentTime=m;}
+ };
+ var stopAll=function(){vids().forEach(function(v){v.pause();});pp.textContent='Play';};
+ pp.onclick=function(){
+  if(!vy.paused){stopAll();return;}
+  if(vy.ended)vy.currentTime=0;
+  if(ru){var m=refT(vy.currentTime);vr.currentTime=Math.max(0,Math.min(vr.duration||m,m));}
+  vy.play().catch(function(){});pp.textContent='Pause';
+  var lp=function(){if(vy.paused||vy.ended)return;follow();drawOverlay();requestAnimationFrame(lp);};lp();
+ };
  vy.ontimeupdate=function(){if(vy.duration)sc.value=Math.round(vy.currentTime/vy.duration*1000);drawOverlay();};
- vy.onseeked=drawOverlay;vy.onloadeddata=drawOverlay;vy.onplay=function(){var lp=function(){if(vy.paused||vy.ended)return;drawOverlay();requestAnimationFrame(lp);};lp();};
- vy.onended=function(){pp.textContent='Play';};
+ vy.onseeked=drawOverlay;vy.onloadeddata=drawOverlay;
+ vy.onended=function(){stopAll();};
  vr.onloadeddata=drawOverlay;vr.onseeked=drawOverlay;
- sc.oninput=function(){vids().forEach(function(v){if(v.duration){v.pause();v.currentTime=sc.value/1000*v.duration;}});pp.textContent='Play';};
+ sc.oninput=function(){if(vy.duration){stopAll();seekBoth(sc.value/1000*vy.duration);}};
  var rates=[1,0.5,0.25],ri=0;
  sp.onclick=function(){ri=(ri+1)%rates.length;vids().forEach(function(v){v.playbackRate=rates[ri];});sp.textContent=rates[ri]+'x';};
+ var nudge=function(d){var c=sy();f.sync={y:c.y,r:c.r+d};f.syncMan=true;stopAll();seekBoth(vy.currentTime||0);};
+ document.getElementById('syM').onclick=function(){nudge(-0.5);};
+ document.getElementById('syP').onclick=function(){nudge(0.5);};
+ document.getElementById('syA').onclick=function(){
+  if(!sk||!poseFrames||refUrls[f.ex]){
+   // no automatic option: reset the offset
+   f.sync={y:0,r:0};stopAll();seekBoth(0);return;
+  }
+  if(autoSync()){stopAll();seekBoth(Math.max(0,sy().y-1));}
+ };
+ if(f.syncSeek){f.syncSeek=false;var go=function(){seekBoth(Math.max(0,sy().y-1));};if(vy.readyState>0)go();else vy.addEventListener('loadedmetadata',go,{once:true});}
 }
 
 /* ---------- events ---------- */
